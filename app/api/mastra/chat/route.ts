@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { chatWithMastra } from "@/lib/mastra"
 
-// Configure larger payload size limit for sample data
+// Configure larger payload size limit
 export const config = {
   api: {
     bodyParser: {
@@ -15,6 +15,26 @@ export const config = {
  * Processes natural language queries and returns SQL
  */
 export async function POST(req: NextRequest) {
+  // Check for required environment variables first
+  if (!process.env.OPENAI_API_KEY) {
+    console.error("OPENAI_API_KEY environment variable is missing")
+    return NextResponse.json(
+      { error: "OpenAI API key is not configured. Please add OPENAI_API_KEY to your environment variables." },
+      { status: 500 },
+    )
+  }
+
+  if (!process.env.NEXT_PUBLIC_MASTRA_AGENT_URL) {
+    console.error("NEXT_PUBLIC_MASTRA_AGENT_URL environment variable is missing")
+    return NextResponse.json(
+      {
+        error:
+          "Mastra agent URL is not configured. Please add NEXT_PUBLIC_MASTRA_AGENT_URL to your environment variables.",
+      },
+      { status: 500 },
+    )
+  }
+
   try {
     // Parse the request body
     const { prompt, schema, sampleRows } = await req.json()
@@ -34,7 +54,22 @@ export async function POST(req: NextRequest) {
 
     // Call Mastra service with error handling
     try {
+      console.log("Calling Mastra service with:", {
+        promptLength: prompt.length,
+        schemaKeys: Object.keys(schema),
+        sampleRowsCount: sampleRows.length,
+      })
+
       const result = await chatWithMastra(prompt, schema, sampleRows)
+
+      console.log("Mastra service response received")
+
+      // Validate the response structure
+      if (!result || typeof result !== "object") {
+        console.error("Invalid response from Mastra service:", result)
+        return NextResponse.json({ error: "Received invalid response from Mastra service" }, { status: 500 })
+      }
+
       return NextResponse.json(result)
     } catch (err) {
       console.error("Error calling Mastra service:", err)

@@ -6,7 +6,7 @@ import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { useCsvStore } from "@/hooks/use-csv-store"
 import { extractSchemaFromCsv } from "@/lib/mastra"
@@ -43,11 +43,18 @@ export function MastraChat() {
     setError(null)
 
     try {
+      // Check if environment variables are available
+      if (!process.env.NEXT_PUBLIC_MASTRA_AGENT_URL) {
+        throw new Error("Mastra agent URL is not configured. Please check your environment variables.")
+      }
+
       // Extract schema from CSV data
       const schema = extractSchemaFromCsv(csvFile.columns, csvData)
       const sampleRows = csvData.slice(0, 50) // Send up to 50 sample rows for context
 
-      // Make API request to our route handler
+      console.log("Sending request to /api/mastra/chat with method POST")
+
+      // Make API request to our route handler - EXPLICITLY using POST method
       const res = await fetch("/api/mastra/chat", {
         method: "POST", // Ensure method is POST
         headers: {
@@ -60,21 +67,37 @@ export function MastraChat() {
         }),
       })
 
+      console.log("Response status:", res.status)
+
+      // Handle specific HTTP status codes
+      if (res.status === 405) {
+        throw new Error("Method Not Allowed: The server only accepts POST requests to this endpoint.")
+      }
+
       // Parse the response JSON (in try/catch to handle parse errors)
       let data
       try {
         data = await res.json()
       } catch (err) {
-        throw new Error("Failed to parse server response")
+        console.error("Failed to parse response:", err)
+        throw new Error("Failed to parse server response. Check server logs for details.")
       }
 
       // Check if response is not OK
       if (!res.ok) {
-        throw new Error(data.error || `Server error: ${res.status}`)
+        const errorMessage = data?.error || `Server error: ${res.status}`
+        console.error("Server returned error:", errorMessage)
+        throw new Error(errorMessage)
       }
+
+      console.log("Response data received:", data)
 
       // Extract reply and SQL from response
       const { reply, sql } = data
+
+      if (!reply || !sql) {
+        console.warn("Response missing expected fields:", data)
+      }
 
       // Add message to chat history
       setMessages((prev) => [
@@ -160,6 +183,7 @@ export function MastraChat() {
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
