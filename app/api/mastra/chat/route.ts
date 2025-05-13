@@ -1,59 +1,51 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { chatWithMastra } from "@/lib/mastra"
 
-// Configure larger payload size limit
+// Configure larger payload size limit for sample data
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "1mb",
+      sizeLimit: "5mb",
     },
   },
 }
 
+/**
+ * POST handler for /api/mastra/chat
+ * Processes natural language queries and returns SQL
+ */
 export async function POST(req: NextRequest) {
   try {
     // Parse the request body
-    const body = await req.json()
-    const { prompt, schema, sampleRows } = body
+    const { prompt, schema, sampleRows } = await req.json()
 
-    // Validate input
-    if (!prompt || typeof prompt !== "string") {
-      return NextResponse.json({ error: "Invalid prompt: must be a non-empty string" }, { status: 400 })
+    // Validate required fields
+    if (!prompt) {
+      return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    if (!schema || typeof schema !== "object") {
-      return NextResponse.json({ error: "Invalid schema: must be an object" }, { status: 400 })
+    if (!schema) {
+      return NextResponse.json({ error: "Schema is required" }, { status: 400 })
     }
 
-    if (!Array.isArray(sampleRows)) {
-      return NextResponse.json({ error: "Invalid sampleRows: must be an array" }, { status: 400 })
+    if (!sampleRows) {
+      return NextResponse.json({ error: "Sample rows are required" }, { status: 400 })
     }
 
-    // Check if OpenAI API key is configured
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: "OpenAI API key is not configured. Please add OPENAI_API_KEY to your environment variables." },
-        { status: 500 },
-      )
-    }
-
-    // Forward the prompt and context to Mastra and return its reply
+    // Call Mastra service with error handling
     try {
       const result = await chatWithMastra(prompt, schema, sampleRows)
       return NextResponse.json(result)
     } catch (err) {
-      console.error("Error in chatWithMastra:", err)
+      console.error("Error calling Mastra service:", err)
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Unknown error in Mastra service" },
         { status: 500 },
       )
     }
   } catch (err) {
-    // Handle JSON parsing errors or other unexpected errors
-    console.error("Unexpected error in Mastra chat API:", err)
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to process request" },
-      { status: 500 },
-    )
+    // Handle JSON parsing errors
+    console.error("Error parsing request:", err)
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Invalid request format" }, { status: 400 })
   }
 }
