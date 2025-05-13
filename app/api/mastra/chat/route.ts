@@ -169,7 +169,9 @@ export async function POST(req: NextRequest) {
         let result
         try {
           result = await agent.generate({
-            input: prompt,
+            messages: [
+              { role: "user", content: prompt }
+            ],
             context: {
               schema,
               sampleRows,
