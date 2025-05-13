@@ -2,7 +2,14 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import Background3D from "@/components/Background3D"
+import dynamic from 'next/dynamic'
+
+// Dynamically import Background3D with ssr: false
+const Background3D = dynamic(() => import('@/components/Background3D'), { 
+  ssr: false,
+  // Optional: add a loading component if needed while Background3D loads
+  // loading: () => <p>Loading 3D background...</p> 
+})
 
 const inter = Inter({ subsets: ["latin"] })
 
