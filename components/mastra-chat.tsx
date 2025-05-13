@@ -183,6 +183,22 @@ export function MastraChat() {
             </Alert>
           )}
 
+          {/* Clear Chat Button */}
+          <div className="flex justify-end mb-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setMessages([]);
+                setSqlResult(null);
+                setError(null);
+              }}
+              disabled={messages.length === 0}
+            >
+              Clear Chat
+            </Button>
+          </div>
+
           <div className="border rounded-md p-4 h-[300px] overflow-y-auto space-y-4">
             {messages.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">
