@@ -1,88 +1,86 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type PostgrestError } from "@supabase/supabase-js";
 
-function formatSupabaseError(err: PostgrestError) {
-  return {
-    message: err.message,
-    details: err.details ?? null,
-    hint: err.hint ?? null,
-    code: err.code ?? null,
-  } as const;
-}
+/* ————————————————————— helpers ————————————————————— */
+const isUUID = (v: unknown): v is string =>
+  typeof v === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
+const shapeError = (e: PostgrestError) => ({
+  message: e.message,
+  details: e.details ?? null,
+  hint: e.hint ?? null,
+  code: e.code ?? null,
+});
+
+/* ————————————————————— handler ————————————————————— */
 export async function DELETE(req: NextRequest) {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
+  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json(
-      { error: "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set on the server" },
+      { error: "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set" },
       { status: 500 },
     );
   }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });
 
   try {
+    /* 1. pull body + query params safely */
     let body: Record<string, unknown> = {};
     if (req.headers.get("content-type")?.includes("application/json")) {
-      try {
-        body = await req.json();
-      } catch {
-        // No-op for invalid/missing JSON
-      }
+      try { body = await req.json(); } catch { /* ignore */ }
     }
+    const url          = new URL(req.url);
+    const fileIdParam  = body.fileId   ?? url.searchParams.get("fileId");
+    const deleteAllRaw = body.deleteAll ?? url.searchParams.get("deleteAll");
+    const deleteAll    = deleteAllRaw === true || deleteAllRaw === "true";
+    const fileId       = isUUID(fileIdParam) ? fileIdParam : null;
 
-    const url = new URL(req.url);
-    const fileIdParam = body.fileId ?? url.searchParams.get("fileId");
-    const deleteAllParam = body.deleteAll ?? url.searchParams.get("deleteAll");
+    console.log("DELETE /mastra/delete-csv-file", { fileId, deleteAll });
 
-    const fileId = typeof fileIdParam === "string" && fileIdParam !== "null" ? fileIdParam : null;
-    const deleteAll = deleteAllParam === true || deleteAllParam === "true";
-
-    console.log(`[DELETE /api/mastra/delete-csv-file] fileId=${fileId}, deleteAll=${deleteAll}`);
-
+    /* 2. delete everything --------------------------------------------------- */
     if (deleteAll) {
-      const { error: dataErr } = await supabase.from("csv_data").delete().neq("file_id", null);
-      if (dataErr) {
-        console.error("Supabase csv_data delete error:", dataErr);
-        return NextResponse.json({ error: formatSupabaseError(dataErr) }, { status: 500 });
-      }
+      // use .not('col','is',null)  -> …NOT IS NULL (no value sent)
+      const { error: dataErr }  =
+        await supabase.from("csv_data").delete().not("file_id", "is", null);
+      if (dataErr) return NextResponse.json(
+        { error: shapeError(dataErr) }, { status: 500 });
 
-      const { error: fileErr } = await supabase.from("csv_files").delete().neq("id", null);
-      if (fileErr) {
-        console.error("Supabase csv_files delete error:", fileErr);
-        return NextResponse.json({ error: formatSupabaseError(fileErr) }, { status: 500 });
-      }
+      const { error: fileErr } =
+        await supabase.from("csv_files").delete().not("id", "is", null);
+      if (fileErr) return NextResponse.json(
+        { error: shapeError(fileErr) }, { status: 500 });
 
       return NextResponse.json({ success: true, message: "All CSV content deleted." });
     }
 
+    /* 3. delete a single file ----------------------------------------------- */
     if (!fileId) {
       return NextResponse.json(
         { error: "Valid fileId is required unless deleteAll=true." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const { error: dataErrSingle } = await supabase.from("csv_data").delete().eq("file_id", fileId);
-    if (dataErrSingle) {
-      console.error(`Supabase csv_data delete error for ${fileId}:`, dataErrSingle);
-      return NextResponse.json({ error: formatSupabaseError(dataErrSingle) }, { status: 500 });
-    }
+    const { error: dataErr } =
+      await supabase.from("csv_data").delete().eq("file_id", fileId);
+    if (dataErr) return NextResponse.json(
+      { error: shapeError(dataErr) }, { status: 500 });
 
-    const { error: fileErrSingle } = await supabase.from("csv_files").delete().eq("id", fileId);
-    if (fileErrSingle) {
-      console.error(`Supabase csv_files delete error for ${fileId}:`, fileErrSingle);
-      return NextResponse.json({ error: formatSupabaseError(fileErrSingle) }, { status: 500 });
-    }
+    const { error: fileErr } =
+      await supabase.from("csv_files").delete().eq("id", fileId);
+    if (fileErr) return NextResponse.json(
+      { error: shapeError(fileErr) }, { status: 500 });
 
     return NextResponse.json({ success: true, message: `File ${fileId} deleted.` });
+
   } catch (err) {
-    console.error("Unexpected error in DELETE /api/mastra/delete-csv-file:", err);
-    const msg = err instanceof Error ? err.message : "Unexpected server error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("DELETE /mastra/delete-csv-file failed:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Unexpected error" },
+      { status: 500 },
+    );
   }
 }
