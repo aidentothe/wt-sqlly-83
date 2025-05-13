@@ -8,6 +8,9 @@ import { MastraDocs } from "@/components/mastra-docs"
 import { Toaster } from "@/components/ui/toaster"
 
 export default function Home() {
+  // Check if the required environment variables are available
+  const isMastraConfigured = process.env.NEXT_PUBLIC_MASTRA_AGENT_URL ? true : false
+
   return (
     <div className="min-h-screen bg-background">
       <Header />

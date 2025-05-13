@@ -32,10 +32,15 @@ function getAgent() {
         You are an SQL assistant that helps users convert natural language queries into SQL.
         When given a database schema and sample data, generate appropriate SQL queries.
         Always return valid SQL that can be executed against the provided schema.
+        Format your response with the SQL query inside a code block like this:
+        \`\`\`sql
+        SELECT * FROM table;
+        \`\`\`
       `,
       model: openai("gpt-4o", {
         apiKey: process.env.OPENAI_API_KEY,
       }),
+      // Only include the required configuration, no telemetry
       mastra: {
         apiUrl: process.env.NEXT_PUBLIC_MASTRA_AGENT_URL,
         defaultMethod: "POST", // Explicitly set POST to avoid 405 errors
@@ -93,93 +98,115 @@ function extractSchemaFromCsv(columns: string[], sampleRows: any[]) {
  * Processes natural language queries and returns SQL
  */
 export async function POST(req: NextRequest) {
-  // Check for required environment variables first
-  if (!process.env.OPENAI_API_KEY) {
-    console.error("OPENAI_API_KEY environment variable is missing")
-    return NextResponse.json(
-      { error: "OpenAI API key is not configured. Please add OPENAI_API_KEY to your environment variables." },
-      { status: 500 },
-    )
-  }
-
-  if (!process.env.NEXT_PUBLIC_MASTRA_AGENT_URL) {
-    console.error("NEXT_PUBLIC_MASTRA_AGENT_URL environment variable is missing")
-    return NextResponse.json(
-      {
-        error:
-          "Mastra agent URL is not configured. Please add NEXT_PUBLIC_MASTRA_AGENT_URL to your environment variables.",
-      },
-      { status: 500 },
-    )
-  }
-
   try {
-    // Parse the request body
-    const { prompt, schema, sampleRows } = await req.json()
-
-    // Validate required fields
-    if (!prompt) {
-      return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
+    // Check for required environment variables first
+    if (!process.env.OPENAI_API_KEY) {
+      console.error("OPENAI_API_KEY environment variable is missing")
+      return NextResponse.json(
+        { error: "OpenAI API key is not configured. Please add OPENAI_API_KEY to your environment variables." },
+        { status: 500 },
+      )
     }
 
-    if (!schema) {
-      return NextResponse.json({ error: "Schema is required" }, { status: 400 })
-    }
-
-    if (!sampleRows) {
-      return NextResponse.json({ error: "Sample rows are required" }, { status: 400 })
-    }
-
-    // Call Mastra service with error handling
-    try {
-      console.log("Calling Mastra service with:", {
-        promptLength: prompt.length,
-        schemaKeys: Object.keys(schema),
-        sampleRowsCount: sampleRows.length,
-      })
-
-      // Get the agent instance
-      const agent = getAgent()
-
-      // Generate a response using the agent
-      const result = await agent.generate({
-        input: prompt,
-        context: {
-          schema,
-          sampleRows,
+    if (!process.env.NEXT_PUBLIC_MASTRA_AGENT_URL) {
+      console.error("NEXT_PUBLIC_MASTRA_AGENT_URL environment variable is missing")
+      return NextResponse.json(
+        {
+          error:
+            "Mastra agent URL is not configured. Please add NEXT_PUBLIC_MASTRA_AGENT_URL to your environment variables.",
         },
-      })
+        { status: 500 },
+      )
+    }
 
-      console.log("Mastra service response received")
+    try {
+      // Parse the request body
+      const { prompt, schema, sampleRows } = await req.json()
 
-      // Extract the SQL from the response
-      const sqlMatch = result.output.match(/```sql\n([\s\S]*?)\n```/)
-      const sql = sqlMatch ? sqlMatch[1].trim() : ""
-
-      return NextResponse.json({
-        reply: result.output,
-        sql: sql,
-      })
-    } catch (err) {
-      console.error("Error calling Mastra service:", err)
-
-      // Provide more detailed error information
-      let errorMessage = "Unknown error in Mastra service"
-
-      if (err.response) {
-        errorMessage = `Mastra API error: ${err.response.status} ${err.response.statusText}`
-        console.error("Response status:", err.response.status)
-        console.error("Response headers:", err.response.headers)
-        console.error("Response data:", err.response.data)
-      } else if (err instanceof Error) {
-        errorMessage = err.message
+      // Validate required fields
+      if (!prompt) {
+        return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
       }
 
-      return NextResponse.json({ error: errorMessage }, { status: 500 })
+      if (!schema) {
+        return NextResponse.json({ error: "Schema is required" }, { status: 400 })
+      }
+
+      if (!sampleRows) {
+        return NextResponse.json({ error: "Sample rows are required" }, { status: 400 })
+      }
+
+      // Call Mastra service with error handling
+      try {
+        console.log("Calling Mastra service with:", {
+          promptLength: prompt.length,
+          schemaKeys: Object.keys(schema),
+          sampleRowsCount: sampleRows.length,
+        })
+
+        // Get the agent instance
+        const agent = getAgent()
+
+        // Generate a response using the agent
+        // Wrap this in a try/catch to handle any potential errors
+        let result
+        try {
+          result = await agent.generate({
+            input: prompt,
+            context: {
+              schema,
+              sampleRows,
+            },
+          })
+        } catch (agentError) {
+          console.error("Error generating response with Mastra agent:", agentError)
+          return NextResponse.json(
+            { error: `Mastra agent error: ${agentError.message || "Unknown error"}` },
+            { status: 500 },
+          )
+        }
+
+        console.log("Mastra service response received")
+
+        // Extract the SQL from the response
+        const sqlMatch = result.output.match(/```sql\n([\s\S]*?)\n```/)
+        const sql = sqlMatch ? sqlMatch[1].trim() : ""
+
+        return NextResponse.json({
+          reply: result.output,
+          sql: sql,
+        })
+      } catch (err) {
+        console.error("Error calling Mastra service:", err)
+
+        // Provide more detailed error information
+        let errorMessage = "Unknown error in Mastra service"
+
+        if (err.response) {
+          errorMessage = `Mastra API error: ${err.response.status} ${err.response.statusText}`
+          console.error("Response status:", err.response.status)
+          console.error("Response headers:", err.response.headers)
+          console.error("Response data:", err.response.data)
+        } else if (err instanceof Error) {
+          errorMessage = err.message
+        }
+
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
+      }
+    } catch (err) {
+      // Handle JSON parsing errors
+      console.error("Error parsing request:", err)
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Invalid request format" },
+        { status: 400 },
+      )
     }
-  } catch (err) {
-    // Handle JSON parsing errors
-    console.error("Error parsing request:", err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Invalid request format" }, { status: 400 })
+  } catch (outerError) {
+    // Catch any unexpected errors
+    console.error("Unexpected error in API route:", outerError)
+    return NextResponse.json(
+      { error: outerError instanceof Error ? outerError.message : "An unexpected error occurred" },
+      { status: 500 },
+    )
   }
 }
