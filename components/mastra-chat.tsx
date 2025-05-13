@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Send, Play, Loader2 } from "lucide-react"
+import { Send, Play, Loader2, AlertCircle } from "lucide-react"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { useCsvStore } from "@/hooks/use-csv-store"
 import { extractSchemaFromCsv } from "@/lib/mastra"
 import { executeSqlQuery } from "@/lib/supabase"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface Message {
   user: string
@@ -25,6 +26,7 @@ export function MastraChat() {
   const [isLoading, setIsLoading] = useState(false)
   const [sqlResult, setSqlResult] = useState<any[] | null>(null)
   const [isExecuting, setIsExecuting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const sendMessage = async () => {
     if (!draft.trim() || !csvFile || !csvData.length) {
@@ -38,6 +40,7 @@ export function MastraChat() {
 
     setIsLoading(true)
     setSqlResult(null)
+    setError(null)
 
     try {
       // Extract schema from CSV data
@@ -54,19 +57,41 @@ export function MastraChat() {
         headers: { "Content-Type": "application/json" },
       })
 
+      // Check if the response is ok
       if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`)
+        let errorMessage = "Failed to communicate with Mastra service"
+
+        try {
+          // Try to parse error response
+          const errorData = await res.json()
+          if (errorData && errorData.error) {
+            errorMessage = errorData.error
+          }
+        } catch (parseError) {
+          // If JSON parsing fails, use status text
+          errorMessage = `Server error: ${res.status} ${res.statusText}`
+        }
+
+        throw new Error(errorMessage)
       }
 
-      const { reply, sql } = await res.json()
+      // Parse the successful response
+      let responseData
+      try {
+        responseData = await res.json()
+      } catch (parseError) {
+        throw new Error("Failed to parse server response")
+      }
+
+      const { reply, sql } = responseData
 
       // Add message to chat history
       setMessages((prev) => [
         ...prev,
         {
           user: draft,
-          bot: reply,
-          sql: sql,
+          bot: reply || "I've generated a SQL query based on your request.",
+          sql: sql || "",
         },
       ])
 
@@ -74,6 +99,10 @@ export function MastraChat() {
       setDraft("")
     } catch (error) {
       console.error("Error sending message:", error)
+
+      // Set error state for UI display
+      setError(error instanceof Error ? error.message : "Unknown error occurred")
+
       toast({
         variant: "destructive",
         title: "Failed to send message",
@@ -100,6 +129,7 @@ export function MastraChat() {
 
     setIsExecuting(true)
     setSqlResult(null)
+    setError(null)
 
     try {
       const result = await executeSqlQuery(latestSql, csvFile.id)
@@ -111,6 +141,10 @@ export function MastraChat() {
       })
     } catch (error) {
       console.error("Error executing SQL:", error)
+
+      // Set error state for UI display
+      setError(error instanceof Error ? error.message : "Unknown error occurred")
+
       toast({
         variant: "destructive",
         title: "Failed to execute SQL",
@@ -132,6 +166,14 @@ export function MastraChat() {
           <CardDescription>Ask questions in plain English to generate SQL queries</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
           <div className="border rounded-md p-4 h-[300px] overflow-y-auto space-y-4">
             {messages.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">
