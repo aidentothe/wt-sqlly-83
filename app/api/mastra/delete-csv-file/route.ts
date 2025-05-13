@@ -1,17 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type PostgrestError } from "@supabase/supabase-js";
 
-/**
- * DELETE /api/mastra/delete-csv-file
- *
- * Body *(optional)*  : { fileId?: string; deleteAll?: boolean }
- * Query params (fallback): ?fileId=…&deleteAll=true
- *
- * Uses a **service-role** Supabase client so RLS policies won’t block deletes.
- * Now returns **verbose Supabase error objects** → `{ message, details, hint, code }`.
- */
-
-/** Helper – shape Supabase PostgrestError for client consumption */
 function formatSupabaseError(err: PostgrestError) {
   return {
     message: err.message,
@@ -22,12 +11,8 @@ function formatSupabaseError(err: PostgrestError) {
 }
 
 export async function DELETE(req: NextRequest) {
-  /*─────────────────────────────────────────────────────────────────────────────*/
-  /* 0. Build Supabase client – *inside* the handler so missing env vars don’t   */
-  /*    crash the route before we can send a JSON error.                         */
-  /*─────────────────────────────────────────────────────────────────────────────*/
-  const supabaseUrl       = process.env.SUPABASE_URL;
-  const serviceRoleKey    = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceRoleKey) {
     return NextResponse.json(
@@ -41,30 +26,26 @@ export async function DELETE(req: NextRequest) {
   });
 
   try {
-    /*───────────────────────────────────────────────────────────────────────────*/
-    /* 1. Parse body safely                                                     */
-    /*───────────────────────────────────────────────────────────────────────────*/
     let body: Record<string, unknown> = {};
     if (req.headers.get("content-type")?.includes("application/json")) {
       try {
         body = await req.json();
-      } catch {/* empty or invalid JSON → keep `body` = {} */}
+      } catch {
+        // No-op for invalid/missing JSON
+      }
     }
 
-    /* 2. Query-string fallback (works for curl / no-body requests) */
     const url = new URL(req.url);
-    const fileIdParam    = body.fileId ?? url.searchParams.get("fileId");
+    const fileIdParam = body.fileId ?? url.searchParams.get("fileId");
     const deleteAllParam = body.deleteAll ?? url.searchParams.get("deleteAll");
 
-    const fileId   = typeof fileIdParam === "string" ? fileIdParam : null;
+    const fileId = typeof fileIdParam === "string" && fileIdParam !== "null" ? fileIdParam : null;
     const deleteAll = deleteAllParam === true || deleteAllParam === "true";
 
-    /*───────────────────────────────────────────────────────────────────────────*/
-    /* 3. Delete EVERYTHING branch                                              */
-    /*───────────────────────────────────────────────────────────────────────────*/
+    console.log(`[DELETE /api/mastra/delete-csv-file] fileId=${fileId}, deleteAll=${deleteAll}`);
+
     if (deleteAll) {
-      // delete child rows first (csv_data) then parent (csv_files)
-      const { error: dataErr }  = await supabase.from("csv_data").delete().neq("file_id", null);
+      const { error: dataErr } = await supabase.from("csv_data").delete().neq("file_id", null);
       if (dataErr) {
         console.error("Supabase csv_data delete error:", dataErr);
         return NextResponse.json({ error: formatSupabaseError(dataErr) }, { status: 500 });
@@ -79,11 +60,11 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: true, message: "All CSV content deleted." });
     }
 
-    /*───────────────────────────────────────────────────────────────────────────*/
-    /* 4. Single-file delete branch                                             */
-    /*───────────────────────────────────────────────────────────────────────────*/
     if (!fileId) {
-      return NextResponse.json({ error: "fileId is required unless deleteAll=true." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Valid fileId is required unless deleteAll=true." },
+        { status: 400 }
+      );
     }
 
     const { error: dataErrSingle } = await supabase.from("csv_data").delete().eq("file_id", fileId);
