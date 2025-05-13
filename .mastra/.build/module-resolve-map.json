@@ -1,0 +1,9 @@
+{
+  "/Users/root1/Downloads/cs/wt-sqlly-83/.mastra/.build/tools.mjs": {
+    "pino": "\u0000virtual:#virtual-@mastra/core/utils",
+    "pino-pretty": "\u0000virtual:#virtual-@mastra/core/utils"
+  },
+  "/Users/root1/Downloads/cs/wt-sqlly-83/.mastra/.build/index2.mjs": {
+    "@libsql/client": "/Users/root1/Downloads/cs/wt-sqlly-83/node_modules/.pnpm/@mastra+core@0.9.3_openapi-types@12.1.3_react@19.0.0_zod@3.24.1/node_modules/@mastra/core/dist/storage/libsql/index.js"
+  }
+}

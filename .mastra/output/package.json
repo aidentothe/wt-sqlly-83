@@ -1,0 +1,22 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "index.mjs",
+  "scripts": {
+    "start": "node ./index.mjs"
+  },
+  "author": "Mastra",
+  "license": "ISC",
+  "dependencies": {
+    "pino": "latest",
+    "pino-pretty": "latest",
+    "@libsql/client": "latest",
+    "@mastra/core": "0.9.3",
+    "@opentelemetry/instrumentation": "latest"
+  },
+  "pnpm": {
+    "neverBuiltDependencies": []
+  }
+}
