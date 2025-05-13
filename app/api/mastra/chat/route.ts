@@ -73,10 +73,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result)
     } catch (err) {
       console.error("Error calling Mastra service:", err)
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Unknown error in Mastra service" },
-        { status: 500 },
-      )
+
+      // Provide more detailed error information
+      let errorMessage = "Unknown error in Mastra service"
+
+      if (err.response) {
+        errorMessage = `Mastra API error: ${err.response.status} ${err.response.statusText}`
+        console.error("Response status:", err.response.status)
+        console.error("Response headers:", err.response.headers)
+        console.error("Response data:", err.response.data)
+      } else if (err instanceof Error) {
+        errorMessage = err.message
+      }
+
+      return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
   } catch (err) {
     // Handle JSON parsing errors
