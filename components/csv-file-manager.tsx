@@ -63,6 +63,42 @@ export function CsvFileManager() {
         <CardTitle>Manage Uploaded CSV Files</CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Delete All Files Button */}
+        <div className="mb-4">
+          <Button
+            variant="destructive"
+            size="sm"
+            className="w-full"
+            disabled={files.length === 0 || loading}
+            onClick={async () => {
+              if (!window.confirm("Are you sure you want to delete ALL files? This cannot be undone.")) return;
+              setLoading(true);
+              try {
+                const res = await fetch("/api/mastra/delete-csv-file", {
+                  method: "DELETE",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ deleteAll: true }),
+                });
+                if (!res.ok) {
+                  const data = await res.json();
+                  throw new Error(data.error || "Failed to delete all files");
+                }
+                toast({ title: "All files deleted" });
+                setFiles([]);
+              } catch (error) {
+                toast({
+                  variant: "destructive",
+                  title: "Failed to delete all files",
+                  description: error instanceof Error ? error.message : "Unknown error",
+                });
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            Delete All Files
+          </Button>
+        </div>
         {files.length === 0 ? (
           <div className="text-muted-foreground">No files uploaded yet.</div>
         ) : (

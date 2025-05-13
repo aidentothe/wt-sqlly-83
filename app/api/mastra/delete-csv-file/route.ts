@@ -2,7 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
 export async function DELETE(req: NextRequest) {
-  const { fileId } = await req.json();
+  const { fileId, deleteAll } = await req.json();
+
+  if (deleteAll) {
+    // Delete all files and all data
+    const { error: dataError } = await supabase.from("csv_data").delete();
+    const { error: fileError } = await supabase.from("csv_files").delete();
+    if (dataError || fileError) {
+      return NextResponse.json({ error: dataError?.message || fileError?.message }, { status: 500 });
+    }
+    return NextResponse.json({ success: true });
+  }
+
   if (!fileId) {
     return NextResponse.json({ error: "Missing fileId" }, { status: 400 });
   }
