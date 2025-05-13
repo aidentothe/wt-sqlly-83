@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { openai } from "@ai-sdk/openai"
+import { createOpenAI } from "@ai-sdk/openai"
 import { Agent } from "@mastra/core/agent"
 
 // Configure larger payload size limit
@@ -10,6 +10,20 @@ export const config = {
     },
   },
 }
+
+// Create the OpenAI provider with your API key
+const openaiProvider = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
+
+// Example tool: Echo tool
+const echoTool = {
+  id: 'echo',
+  description: 'Echoes back the input',
+  async run({ input }: { input: string }) {
+    return input;
+  },
+};
 
 // Create the agent instance (server-side only)
 let agentInstance: any = null
@@ -37,13 +51,9 @@ function getAgent() {
         SELECT * FROM table;
         \`\`\`
       `,
-      model: openai("gpt-4o", {
-        apiKey: process.env.OPENAI_API_KEY,
-      }),
-      // Only include the required configuration, no telemetry
-      mastra: {
-        apiUrl: process.env.NEXT_PUBLIC_MASTRA_AGENT_URL,
-        defaultMethod: "POST", // Explicitly set POST to avoid 405 errors
+      model: openaiProvider("gpt-4o"),
+      tools: {
+        echo: echoTool,
       },
     })
   }
@@ -161,7 +171,7 @@ export async function POST(req: NextRequest) {
         } catch (agentError) {
           console.error("Error generating response with Mastra agent:", agentError)
           return NextResponse.json(
-            { error: `Mastra agent error: ${agentError.message || "Unknown error"}` },
+            { error: agentError instanceof Error ? `Mastra agent error: ${agentError.message}` : "Mastra agent error: Unknown error" },
             { status: 500 },
           )
         }
@@ -182,11 +192,12 @@ export async function POST(req: NextRequest) {
         // Provide more detailed error information
         let errorMessage = "Unknown error in Mastra service"
 
-        if (err.response) {
-          errorMessage = `Mastra API error: ${err.response.status} ${err.response.statusText}`
-          console.error("Response status:", err.response.status)
-          console.error("Response headers:", err.response.headers)
-          console.error("Response data:", err.response.data)
+        if (err && typeof err === 'object' && 'response' in err && err.response) {
+          const response = (err as any).response;
+          errorMessage = `Mastra API error: ${response.status} ${response.statusText}`
+          console.error("Response status:", response.status)
+          console.error("Response headers:", response.headers)
+          console.error("Response data:", response.data)
         } else if (err instanceof Error) {
           errorMessage = err.message
         }
