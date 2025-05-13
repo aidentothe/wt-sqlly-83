@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type PostgrestError } from "@supabase/supabase-js";
 
 /**
  * DELETE /api/mastra/delete-csv-file
@@ -7,10 +7,20 @@ import { createClient } from "@supabase/supabase-js";
  * Body *(optional)*  : { fileId?: string; deleteAll?: boolean }
  * Query params (fallback): ?fileId=…&deleteAll=true
  *
- * Uses a **service‑role** Supabase client so RLS policies won’t block deletes.
- * If the required env vars are missing the route responds with 500 + message
- * instead of crashing the whole function (avoids the blank 500 you saw).
+ * Uses a **service-role** Supabase client so RLS policies won’t block deletes.
+ * Now returns **verbose Supabase error objects** → `{ message, details, hint, code }`.
  */
+
+/** Helper – shape Supabase PostgrestError for client consumption */
+function formatSupabaseError(err: PostgrestError) {
+  return {
+    message: err.message,
+    details: err.details ?? null,
+    hint: err.hint ?? null,
+    code: err.code ?? null,
+  } as const;
+}
+
 export async function DELETE(req: NextRequest) {
   /*─────────────────────────────────────────────────────────────────────────────*/
   /* 0. Build Supabase client – *inside* the handler so missing env vars don’t   */
@@ -41,7 +51,7 @@ export async function DELETE(req: NextRequest) {
       } catch {/* empty or invalid JSON → keep `body` = {} */}
     }
 
-    /* 2. Query‑string fallback (works for curl / no‑body requests) */
+    /* 2. Query-string fallback (works for curl / no-body requests) */
     const url = new URL(req.url);
     const fileIdParam    = body.fileId ?? url.searchParams.get("fileId");
     const deleteAllParam = body.deleteAll ?? url.searchParams.get("deleteAll");
@@ -57,20 +67,20 @@ export async function DELETE(req: NextRequest) {
       const { error: dataErr }  = await supabase.from("csv_data").delete().neq("file_id", null);
       if (dataErr) {
         console.error("Supabase csv_data delete error:", dataErr);
-        return NextResponse.json({ error: dataErr.message }, { status: 500 });
+        return NextResponse.json({ error: formatSupabaseError(dataErr) }, { status: 500 });
       }
 
       const { error: fileErr } = await supabase.from("csv_files").delete().neq("id", null);
       if (fileErr) {
         console.error("Supabase csv_files delete error:", fileErr);
-        return NextResponse.json({ error: fileErr.message }, { status: 500 });
+        return NextResponse.json({ error: formatSupabaseError(fileErr) }, { status: 500 });
       }
 
       return NextResponse.json({ success: true, message: "All CSV content deleted." });
     }
 
     /*───────────────────────────────────────────────────────────────────────────*/
-    /* 4. Single‑file delete branch                                             */
+    /* 4. Single-file delete branch                                             */
     /*───────────────────────────────────────────────────────────────────────────*/
     if (!fileId) {
       return NextResponse.json({ error: "fileId is required unless deleteAll=true." }, { status: 400 });
@@ -79,13 +89,13 @@ export async function DELETE(req: NextRequest) {
     const { error: dataErrSingle } = await supabase.from("csv_data").delete().eq("file_id", fileId);
     if (dataErrSingle) {
       console.error(`Supabase csv_data delete error for ${fileId}:`, dataErrSingle);
-      return NextResponse.json({ error: dataErrSingle.message }, { status: 500 });
+      return NextResponse.json({ error: formatSupabaseError(dataErrSingle) }, { status: 500 });
     }
 
     const { error: fileErrSingle } = await supabase.from("csv_files").delete().eq("id", fileId);
     if (fileErrSingle) {
       console.error(`Supabase csv_files delete error for ${fileId}:`, fileErrSingle);
-      return NextResponse.json({ error: fileErrSingle.message }, { status: 500 });
+      return NextResponse.json({ error: formatSupabaseError(fileErrSingle) }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: `File ${fileId} deleted.` });
