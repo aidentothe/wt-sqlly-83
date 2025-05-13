@@ -7,7 +7,7 @@ import { getCsvFilesList } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 
 export function CsvFileManager() {
-  const [files, setFiles] = useState<{ id: string; name: string }[]>([]);
+  const [files, setFiles] = useState<{ id: string; name: string; size: number; createdAt: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -69,7 +69,11 @@ export function CsvFileManager() {
           <ul className="space-y-2">
             {files.map((file) => (
               <li key={file.id} className="flex items-center justify-between border-b pb-2">
-                <span className="truncate">{file.name}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 min-w-0">
+                  <span className="truncate font-medium">{file.name}</span>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">{(file.size / 1024 / 1024) >= 1 ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : `${(file.size / 1024).toFixed(0)} KB`}</span>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">{new Date(file.createdAt).toLocaleString()}</span>
+                </div>
                 <Button
                   variant="destructive"
                   size="sm"

@@ -6,6 +6,7 @@ import { SqlPromptBuilder } from "@/components/sql-prompt-builder"
 import { MastraChat } from "@/components/mastra-chat"
 import { MastraDocs } from "@/components/mastra-docs"
 import { Toaster } from "@/components/ui/toaster"
+import { CsvFileManager } from "@/components/csv-file-manager"
 
 export default function Home() {
   // Check if the required environment variables are available
@@ -27,6 +28,13 @@ export default function Home() {
               <MastraChat />
             </div>
           </div>
+
+          {/* CSV File Manager Section */}
+          <section className="w-full max-w-2xl mt-12">
+            <h2 className="text-xl font-bold mb-2">Manage Uploaded CSV Files</h2>
+            <p className="mb-4 text-muted-foreground">View and delete your uploaded CSV files below.</p>
+            <CsvFileManager />
+          </section>
         </div>
       </MainLayout>
       <Toaster />

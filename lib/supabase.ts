@@ -140,13 +140,15 @@ export async function getCsvFilesList() {
   try {
     const { data, error } = await supabase
       .from("csv_files")
-      .select("id, original_filename")
+      .select("id, original_filename, size_bytes, created_at")
       .order("created_at", { ascending: false })
 
     if (error) throw error
     return data.map((file) => ({
       id: file.id,
       name: file.original_filename,
+      size: file.size_bytes,
+      createdAt: file.created_at,
     }))
   } catch (error) {
     console.error("Error fetching CSV files list:", error)
