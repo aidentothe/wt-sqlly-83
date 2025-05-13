@@ -140,17 +140,10 @@ export async function POST(req: NextRequest) {
       // Parse the request body
       const { prompt, schema, sampleRows } = await req.json()
 
-      // Validate required fields
-      if (!prompt) {
-        return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
-      }
-
-      if (!schema) {
-        return NextResponse.json({ error: "Schema is required" }, { status: 400 })
-      }
-
-      if (!sampleRows) {
-        return NextResponse.json({ error: "Sample rows are required" }, { status: 400 })
+      // Validate required fields and types
+      if (typeof prompt !== 'string' || typeof schema !== 'object' || !Array.isArray(sampleRows)) {
+        console.error("Invalid input types", { promptType: typeof prompt, schemaType: typeof schema, sampleRowsType: Array.isArray(sampleRows) ? 'array' : typeof sampleRows });
+        return NextResponse.json({ error: "Invalid input types. 'prompt' must be a string, 'schema' must be an object, and 'sampleRows' must be an array." }, { status: 400 });
       }
 
       // Call Mastra service with error handling
@@ -186,11 +179,19 @@ export async function POST(req: NextRequest) {
 
         // Defensive check before using .match
         if (!result || typeof result.output !== 'string') {
-          console.error("Mastra agent returned invalid output", { result })
+          let outputString = '';
+          if (result && result.output !== undefined) {
+            try {
+              outputString = JSON.stringify(result.output);
+            } catch {
+              outputString = String(result.output);
+            }
+          }
+          console.error("Mastra agent returned invalid output", { result, outputString });
           return NextResponse.json({
             error: "Mastra agent did not return a valid string output.",
-            details: result
-          }, { status: 500 })
+            details: outputString || result
+          }, { status: 500 });
         }
 
         // Extract the SQL from the response
