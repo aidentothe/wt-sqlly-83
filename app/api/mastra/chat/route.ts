@@ -118,14 +118,17 @@ export async function POST(req: NextRequest) {
       { role: "user", content: prompt },
     ]);
 
-    if (typeof result.output !== "string") {
+    // Log the full agent result for debugging
+    console.log("Mastra agent raw result:", result);
+
+    if (typeof result.text !== "string") {
       return NextResponse.json({ error: "Mastra agent returned non‑string output" }, { status: 500 });
     }
 
-    const sqlMatch = result.output.match(/```sql\s*([\s\S]*?)```/i);
+    const sqlMatch = result.text.match(/```sql\s*([\s\S]*?)```/i);
     const sql = sqlMatch ? sqlMatch[1].trim() : "";
 
-    return NextResponse.json({ reply: result.output, sql });
+    return NextResponse.json({ reply: result.text, sql });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unexpected server error";
     console.error(err);
