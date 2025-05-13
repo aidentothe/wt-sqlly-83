@@ -168,15 +168,17 @@ export async function POST(req: NextRequest) {
         // Wrap this in a try/catch to handle any potential errors
         let result
         try {
-          result = await agent.generate({
-            messages: [
+          result = await agent.generate(
+            [
               { role: "user", content: prompt }
             ],
-            context: {
-              schema,
-              sampleRows,
-            },
-          })
+            {
+              context: {
+                schema,
+                sampleRows,
+              },
+            }
+          )
         } catch (agentError) {
           console.error("Error generating response with Mastra agent:", agentError)
           return NextResponse.json(
