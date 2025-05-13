@@ -1,60 +1,81 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
+/**
+ * DELETE /api/mastra/delete-csv-file
+ *
+ * Body *(optional)*  : { fileId?: string; deleteAll?: boolean }
+ * Query params (fallback): ?fileId=…&deleteAll=true
+ *
+ * – `deleteAll=true` takes precedence and removes **all** rows in `csv_data`
+ *   and `csv_files`.
+ * – If `deleteAll` is falsy we require a `fileId` (string) and delete only rows
+ *   matching that id.
+ *
+ * Supabase JS v2 is used, so `.delete()` returns `{ data, error }`. We bail out
+ * on the **first** error to avoid partial deletes.
+ */
 export async function DELETE(req: NextRequest) {
   try {
-    const { fileId, deleteAll } = await req.json();
+    /**
+     * 1. Parse body _safely_.  Browsers often send DELETE requests **without** a
+     *    body, and calling `req.json()` unconditionally would throw.  We only
+     *    parse JSON when the header signals it _and_ the stream contains data.
+     */
+    let body: Record<string, unknown> = {};
+    if (req.headers.get("content-type")?.includes("application/json")) {
+      try {
+        body = await req.json();
+      } catch {/* ignore empty or invalid JSON */}
+    }
 
+    /** 2. Merge body with query‑string fallbacks so the route works from curl */
+    const url = new URL(req.url);
+    const fileId = (body.fileId ?? url.searchParams.get("fileId")) as string | null;
+    const deleteAll = (body.deleteAll ?? url.searchParams.get("deleteAll")) === true ||
+                      (url.searchParams.get("deleteAll") === "true");
+
+    /** 3. Handle the “delete everything” branch first */
     if (deleteAll) {
-      console.log("Attempting to delete all CSV data and files.");
-
-      // Delete all data rows first (which reference files)
-      // Assumes 'file_id' is always populated for rows in 'csv_data'.
-      const { error: dataError } = await supabase.from("csv_data").delete().not("file_id", "is", null);
+      // Delete rows in an order that honours FK constraints (csv_data → csv_files)
+      const { error: dataError } = await supabase.from("csv_data").delete().neq("file_id", null);
       if (dataError) {
-        console.error("Supabase error deleting from csv_data:", dataError);
-        return NextResponse.json({ error: `Failed to delete CSV data: ${dataError.message}` }, { status: 500 });
+        console.error("Supabase error deleting csv_data:", dataError);
+        return NextResponse.json({ error: dataError.message }, { status: 500 });
       }
-      console.log("Successfully deleted all entries from csv_data.");
 
-      // Then delete all file metadata rows
-      // Assumes 'id' is the primary key and always populated for rows in 'csv_files'.
-      const { error: fileError } = await supabase.from("csv_files").delete().not("id", "is", null);
+      const { error: fileError } = await supabase.from("csv_files").delete().neq("id", null);
       if (fileError) {
-        console.error("Supabase error deleting from csv_files:", fileError);
-        return NextResponse.json({ error: `Failed to delete CSV files: ${fileError.message}` }, { status: 500 });
+        console.error("Supabase error deleting csv_files:", fileError);
+        return NextResponse.json({ error: fileError.message }, { status: 500 });
       }
-      console.log("Successfully deleted all entries from csv_files.");
 
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, message: "All CSV data and metadata deleted." });
     }
 
+    /** 4. Validate `fileId` for single‑file delete */
     if (!fileId) {
-      return NextResponse.json({ error: "Missing fileId" }, { status: 400 });
+      return NextResponse.json({ error: "fileId is required unless deleteAll is true." }, { status: 400 });
     }
 
-    console.log(`Attempting to delete file with ID: ${fileId}`);
-    // Delete specific file data
+    // a. Delete CSV rows referencing the file
     const { error: dataErrorSingle } = await supabase.from("csv_data").delete().eq("file_id", fileId);
     if (dataErrorSingle) {
-      console.error(`Supabase error deleting from csv_data for fileId ${fileId}:`, dataErrorSingle);
-      return NextResponse.json({ error: `Failed to delete data for file ${fileId}: ${dataErrorSingle.message}` }, { status: 500 });
+      console.error(`Supabase error deleting csv_data for ${fileId}:`, dataErrorSingle);
+      return NextResponse.json({ error: dataErrorSingle.message }, { status: 500 });
     }
-    console.log(`Successfully deleted entries from csv_data for fileId ${fileId}.`);
 
-    // Delete specific file metadata
+    // b. Delete the file metadata row itself
     const { error: fileErrorSingle } = await supabase.from("csv_files").delete().eq("id", fileId);
     if (fileErrorSingle) {
-      console.error(`Supabase error deleting from csv_files for fileId ${fileId}:`, fileErrorSingle);
-      return NextResponse.json({ error: `Failed to delete file metadata ${fileId}: ${fileErrorSingle.message}` }, { status: 500 });
+      console.error(`Supabase error deleting csv_files for ${fileId}:`, fileErrorSingle);
+      return NextResponse.json({ error: fileErrorSingle.message }, { status: 500 });
     }
-    console.log(`Successfully deleted entry from csv_files for fileId ${fileId}.`);
 
-    return NextResponse.json({ success: true });
-
-  } catch (error) {
-    console.error("Unexpected error in DELETE /api/mastra/delete-csv-file:", error);
-    const message = error instanceof Error ? error.message : "An unexpected server error occurred.";
+    return NextResponse.json({ success: true, message: `File ${fileId} deleted.` });
+  } catch (err) {
+    console.error("Unexpected error in DELETE /api/mastra/delete-csv-file:", err);
+    const message = err instanceof Error ? err.message : "Unexpected server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-} 
+}
