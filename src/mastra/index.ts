@@ -17,6 +17,13 @@ const openaiProvider = createOpenAI({
 const echoTool = {
   id: 'echo',
   description: 'Echoes back the input',
+  parameters: {
+    type: 'object',
+    properties: {
+      input: { type: 'string', description: 'The input to echo' }
+    },
+    required: ['input']
+  },
   async run({ input }: { input: string }) {
     return input;
   },
