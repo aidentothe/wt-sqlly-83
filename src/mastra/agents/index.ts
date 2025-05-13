@@ -1,6 +1,5 @@
 import { Agent } from "@mastra/core/agent";
 import { createOpenAI } from "@ai-sdk/openai";
-import { memory } from "../memory";
 import { tools } from "../tools";
 
 const openaiProvider = createOpenAI({
@@ -20,6 +19,5 @@ export const agentInstance = new Agent({
     Do not execute queries yourself. The user may edit and run the final SQL using the 'run-sql' tool.
   `,
   model: openaiProvider("gpt-4o"),
-  memory,
   tools,
 });
