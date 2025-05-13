@@ -183,8 +183,8 @@ export function MastraChat() {
             </Alert>
           )}
 
-          {/* Clear Chat Button */}
-          <div className="flex justify-end mb-2">
+          {/* Clear Chat and Delete All Chats Buttons */}
+          <div className="flex justify-end mb-2 gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -196,6 +196,20 @@ export function MastraChat() {
               disabled={messages.length === 0}
             >
               Clear Chat
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                if (window.confirm("Are you sure you want to delete all chats?")) {
+                  setMessages([]);
+                  setSqlResult(null);
+                  setError(null);
+                }
+              }}
+              disabled={messages.length === 0}
+            >
+              Delete All Chats
             </Button>
           </div>
 
