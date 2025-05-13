@@ -40,7 +40,7 @@ function getAgent() {
         You are an SQL assistant that helps users convert natural‑language questions into SQL.
         Given a database schema and sample rows, generate valid, executable SQL.
         Always wrap the SQL in a fenced code block:
-        \u0060\u0060\u0060sql\nSELECT * FROM table;\n\u0060\u0060\u0060
+        \u0060\u0060\u0060sql\nSELECT * FROM csv_data;\n\u0060\u0060\u0060
       `,
       model: openai("gpt-4o"),
       tools: {
