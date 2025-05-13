@@ -170,14 +170,9 @@ export async function POST(req: NextRequest) {
         try {
           result = await agent.generate(
             [
+              { role: "system", content: `Schema: ${JSON.stringify(schema)}\nSampleRows: ${JSON.stringify(sampleRows)}` },
               { role: "user", content: prompt }
-            ],
-            {
-              context: {
-                schema,
-                sampleRows,
-              },
-            }
+            ]
           )
         } catch (agentError) {
           console.error("Error generating response with Mastra agent:", agentError)
