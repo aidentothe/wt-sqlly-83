@@ -2,14 +2,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import dynamic from 'next/dynamic'
-
-// Dynamically import Background3D with ssr: false
-const Background3D = dynamic(() => import('@/components/Background3D'), { 
-  ssr: false,
-  // Optional: add a loading component if needed while Background3D loads
-  // loading: () => <p>Loading 3D background...</p> 
-})
+import Background3DWrapper from "@/components/Background3DWrapper"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -26,9 +19,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-gradient-to-b from-blue-200 to-white min-h-screen relative`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <Background3D />
+          <Background3DWrapper />
           {children}
         </ThemeProvider>
       </body>
