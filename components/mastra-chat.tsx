@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { useCsvStore } from "@/hooks/use-csv-store"
-import { extractSchemaFromCsv } from "@/lib/mastra"
+import { extractSchemaFromCsv } from "@/lib/csv-utils"
 import { executeSqlQuery } from "@/lib/supabase"
 
 interface Message {
@@ -43,11 +43,6 @@ export function MastraChat() {
     setError(null)
 
     try {
-      // Check if environment variables are available
-      if (!process.env.NEXT_PUBLIC_MASTRA_AGENT_URL) {
-        throw new Error("Mastra agent URL is not configured. Please check your environment variables.")
-      }
-
       // Extract schema from CSV data
       const schema = extractSchemaFromCsv(csvFile.columns, csvData)
       const sampleRows = csvData.slice(0, 50) // Send up to 50 sample rows for context

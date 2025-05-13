@@ -1,38 +1,87 @@
-"use client"
+export async function parseCsv(file: File): Promise<{ columns: string[]; rows: any[] }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
 
-import Papa from "papaparse"
+    reader.onload = (event) => {
+      const csvText = event.target?.result as string
+      if (!csvText) {
+        reject(new Error("Failed to read CSV file"))
+        return
+      }
 
-interface ParsedCsv {
-  columns: string[]
-  rows: Record<string, any>[]
+      const lines = csvText.split("\n")
+      if (lines.length === 0) {
+        reject(new Error("CSV file is empty"))
+        return
+      }
+
+      const columns = lines[0].split(",").map((column) => column.trim())
+      const rows: any[] = []
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(",").map((value) => value.trim())
+        if (values.length !== columns.length) continue // Skip rows with incorrect number of columns
+
+        const row: Record<string, any> = {}
+        for (let j = 0; j < columns.length; j++) {
+          row[columns[j]] = values[j]
+        }
+        rows.push(row)
+      }
+
+      resolve({ columns, rows })
+    }
+
+    reader.onerror = () => {
+      reject(new Error("Failed to read CSV file"))
+    }
+
+    reader.readAsText(file)
+  })
 }
 
-// Parse CSV file
-export async function parseCsv(file: File): Promise<ParsedCsv> {
-  return new Promise((resolve, reject) => {
-    Papa.parse(file, {
-      header: true,
-      dynamicTyping: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        if (results.errors && results.errors.length > 0) {
-          reject(new Error(`CSV parsing error: ${results.errors[0].message}`))
-          return
+/**
+ * Extract schema information from CSV columns and sample rows
+ * This is a client-safe version that doesn't depend on Node.js modules
+ */
+export function extractSchemaFromCsv(columns: string[], sampleRows: any[]) {
+  if (!columns || !columns.length || !sampleRows) {
+    console.warn("Invalid input to extractSchemaFromCsv")
+    return {}
+  }
+
+  const schema: Record<string, string> = {}
+
+  columns.forEach((column) => {
+    // Determine column type based on sample data
+    let type = "text"
+
+    // Check first non-null value to determine type
+    for (const row of sampleRows) {
+      if (!row) continue
+
+      const value = row[column]
+      if (value !== null && value !== undefined) {
+        if (typeof value === "number") {
+          // Check if it's an integer or float
+          type = Number.isInteger(value) ? "integer" : "numeric"
+        } else if (typeof value === "boolean") {
+          type = "boolean"
+        } else if (typeof value === "string") {
+          // Check if it's a date
+          const datePattern = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2})?/
+          if (datePattern.test(value)) {
+            type = "timestamp"
+          }
         }
+        break
+      }
+    }
 
-        // Extract column names from the first row
-        const columns = results.meta.fields || []
-
-        // Convert data to array of objects
-        const rows = results.data as Record<string, any>[]
-
-        resolve({ columns, rows })
-      },
-      error: (error) => {
-        reject(new Error(`CSV parsing error: ${error.message}`))
-      },
-    })
+    schema[column] = type
   })
+
+  return schema
 }
 
 // Get CSV from blob cache
