@@ -182,7 +182,16 @@ export async function POST(req: NextRequest) {
           )
         }
 
-        console.log("Mastra service response received")
+        console.log("Mastra service response received", { resultOutputType: typeof result.output, resultOutput: result.output })
+
+        // Defensive check before using .match
+        if (!result || typeof result.output !== 'string') {
+          console.error("Mastra agent returned invalid output", { result })
+          return NextResponse.json({
+            error: "Mastra agent did not return a valid string output.",
+            details: result
+          }, { status: 500 })
+        }
 
         // Extract the SQL from the response
         const sqlMatch = result.output.match(/```sql\n([\s\S]*?)\n```/)
