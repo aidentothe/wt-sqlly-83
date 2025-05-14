@@ -38,18 +38,23 @@ function getAgent() {
       name: "wt-sqlly-sql-converter",
       instructions: `
         You are an SQL assistant that helps users convert natural-language questions into SQL.
-        You will be provided with a schema and sample rows for a single table named "user_data".
-        Your task is to generate a SQL query that targets the "user_data" table.
+        You will be provided with:
+        1. The schema for a table named "csv_data".
+        2. Sample rows from this table.
+        3. A specific FileID.
+
+        Your task is to generate a SQL query that targets the "csv_data" table and **MUST** filter by the provided FileID.
+        The SQL query should look like: SELECT ... FROM csv_data WHERE file_id = 'THE_PROVIDED_FILE_ID' AND ...other_conditions...;
 
         Always do the following:
 
         1. Briefly restate in plain English what the user is asking for.
-        2. Show the valid, executable SQL for the "user_data" table, wrapped in a fenced code block. For example:
-          \`\`\`sql
-          SELECT * FROM user_data WHERE school = 'Harvard';
-          \`\`\`
-        3. Based on the provided sample rows from "user_data", include a short paragraph in natural language describing the actual results the query would return. For example:
-          "This query would return all the graduates who attended Harvard from the user_data table; in the sample data, those are Alice Johnson and Carlos Ramirez."
+        2. Show the valid, executable SQL for the "csv_data" table, incorporating the provided FileID, wrapped in a fenced code block. For example, if the provided FileID is 'abc-123-xyz':
+          \\`\\`\\`sql
+          SELECT * FROM csv_data WHERE file_id = 'abc-123-xyz' AND school = 'Harvard';
+          \\`\\`\\`
+        3. Based on the provided sample rows from "csv_data" (and considering the FileID context), include a short paragraph in natural language describing the actual results the query would return. For example:
+          "This query would return all graduates who attended Harvard from the dataset associated with FileID 'abc-123-xyz'; in the sample data, those are Alice Johnson and Carlos Ramirez."
       `,
       model: openai("gpt-4o-mini"),
       tools: {
@@ -104,7 +109,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { prompt, schema, sampleRows } = await req.json();
+    const { prompt, schema, sampleRows, fileId } = await req.json();
 
     if (
       typeof prompt !== "string" ||
@@ -122,8 +127,13 @@ export async function POST(req: NextRequest) {
 
     const agent = getAgent();
 
+    const systemMessageContent = 
+      `Schema: ${JSON.stringify(schema)}\n` +
+      `SampleRows: ${JSON.stringify(sampleRows)}\n` +
+      `FileID: ${fileId}`;
+
     const result = await agent.generate([
-      { role: "system", content: `Schema: ${JSON.stringify(schema)}\nSampleRows: ${JSON.stringify(sampleRows)}` },
+      { role: "system", content: systemMessageContent },
       { role: "user", content: prompt },
     ]);
 
