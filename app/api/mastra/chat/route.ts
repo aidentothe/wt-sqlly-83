@@ -37,10 +37,16 @@ function getAgent() {
     agentInstance = new Agent({
       name: "wt-sqlly-sql-converter",
       instructions: `
-        You are an SQL assistant that helps users convert natural‑language questions into SQL.
-        Given a database schema and sample rows, generate valid, executable SQL.
-        Always wrap the SQL in a fenced code block:
-        \u0060\u0060\u0060sql\nSELECT * FROM csv_data;\n\u0060\u0060\u0060
+        You are an SQL assistant that helps users convert natural-language questions into SQL.
+        Given a database schema and sample rows, always do the following:
+
+        1. Briefly restate in plain English what the user is asking for.
+        2. Show the valid, executable SQL wrapped in a fenced code block, for example:
+          \`\`\`sql
+          SELECT * FROM csv_data WHERE school = 'Harvard';
+          \`\`\`
+        3. Based on the provided sample rows, include a short paragraph in natural language describing the actual results the query would return. For example:
+          "This query would return all the graduates who attended Harvard; in the sample data, those are Alice Johnson and Carlos Ramirez."
       `,
       model: openai("gpt-4o"),
       tools: {
