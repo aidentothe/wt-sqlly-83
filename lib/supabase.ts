@@ -164,3 +164,35 @@ export async function getCsvFilesList() {
     throw error
   }
 }
+
+// Get the file_id for a given original_filename (most recent if duplicates)
+export async function getFileIdByOriginalFilename(originalFilename: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from("csv_files")
+      .select("id") // We only need the id
+      .eq("original_filename", originalFilename)
+      .order("created_at", { ascending: false }) // Get the most recent if multiple exist
+      .limit(1) // We only want one record
+      .single(); // Expect a single row or null if no match after limit(1)
+
+    if (error) {
+      // .single() can error if no rows are found (PGRST116) or if multiple rows are found (unexpected with .limit(1))
+      // We want to return null if no file is found, so we can specifically check for PGRST116 or if data is null
+      if (error.code === 'PGRST116' || !data) {
+        console.warn(`No file found with original_filename: ${originalFilename}`);
+        return null;
+      }
+      // For other errors, re-throw them
+      console.error(`Error fetching file ID for original_filename ${originalFilename}:`, error);
+      throw error; 
+    }
+    
+    // If data is not null and no error, return the id
+    return data ? data.id : null;
+  } catch (err) {
+    // Catch any re-thrown errors or unexpected errors during the try block
+    console.error(`Exception fetching file ID for ${originalFilename}:`, err);
+    return null; 
+  }
+}

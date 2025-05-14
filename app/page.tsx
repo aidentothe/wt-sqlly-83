@@ -41,7 +41,7 @@ export default function Home() {
       </MainLayout>
       <Toaster />
       <footer className="border-t p-4 text-center text-sm text-muted-foreground">
-        Made with love powered by Mastra.ai
+        Made with &lt;3 |  powered by <a href="https://mastra.ai" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600">Mastra.ai</a>
       </footer>
     </div>
   )
