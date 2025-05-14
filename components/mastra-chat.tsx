@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Send, Play, Loader2, AlertCircle } from "lucide-react"
+import { Send, Play, Loader2, AlertCircle, Info } from "lucide-react"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,8 @@ interface Message {
   user: string
   bot: string
   sql: string
+  isGeneralQuestion?: boolean
+  analysisResults?: any[] | null
 }
 
 // Define a type for SQL query results
@@ -91,11 +93,42 @@ export function MastraChat() {
 
       console.log("Response data received:", data)
 
-      // Extract reply and SQL from response
-      const { reply, sql } = data
+      // Extract reply, SQL, and whether it's a general question
+      const { reply, sql, isGeneralQuestion } = data
 
-      if (!reply || !sql) {
+      if (!reply) {
         console.warn("Response missing expected fields:", data)
+      }
+
+      let analysisResults = null
+
+      // If this is a general question, automatically execute the SQL query to get data
+      if (isGeneralQuestion && sql) {
+        try {
+          // For general questions, we might have multiple SQL queries separated by semicolons
+          const queries = sql.split(';').filter((q: string) => q.trim().length > 0)
+          
+          analysisResults = []
+          for (const query of queries) {
+            const queryResult = await executeSqlQuery(query.trim())
+            analysisResults.push({
+              query: query.trim(),
+              data: queryResult
+            })
+          }
+          
+          toast({
+            title: "Data analysis completed",
+            description: `Executed ${queries.length} queries to analyze your data`,
+          })
+        } catch (sqlError) {
+          console.error("Error executing analysis SQL:", sqlError)
+          toast({
+            variant: "destructive",
+            title: "Analysis query execution had errors",
+            description: sqlError instanceof Error ? sqlError.message : "Unknown error occurred",
+          })
+        }
       }
 
       // Add message to chat history
@@ -105,6 +138,8 @@ export function MastraChat() {
           user: draft,
           bot: reply || "I've generated a SQL query based on your request.",
           sql: sql || "",
+          isGeneralQuestion: Boolean(isGeneralQuestion),
+          analysisResults: analysisResults
         },
       ])
 
@@ -176,7 +211,7 @@ export function MastraChat() {
             <span className="bg-primary text-primary-foreground p-1 rounded text-xs">AI</span>
             Mastra.ai SQL Assistant
           </CardTitle>
-          <CardDescription>Ask questions in plain English to generate SQL queries</CardDescription>
+          <CardDescription>Ask questions in plain English to generate SQL or analyze your data</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (
@@ -232,10 +267,42 @@ export function MastraChat() {
                   <div className="bg-primary/10 p-3 rounded-md">
                     <p className="font-medium">Mastra.ai:</p>
                     <p>{message.bot}</p>
-                    <div className="mt-2 bg-background p-2 rounded border font-mono text-sm overflow-x-auto">
-                      <pre>{message.sql}</pre>
-                    </div>
-                    {index === messages.length - 1 && (
+                    
+                    {message.sql && (
+                      <div className="mt-2 bg-background p-2 rounded border font-mono text-sm overflow-x-auto">
+                        <pre>{message.sql}</pre>
+                      </div>
+                    )}
+
+                    {/* Display analysis results for general questions */}
+                    {message.isGeneralQuestion && message.analysisResults && message.analysisResults.length > 0 && (
+                      <div className="mt-3 border rounded-md p-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Info className="h-4 w-4 text-primary" />
+                          <span className="font-medium">Data Analysis Results</span>
+                        </div>
+                        <div className="space-y-3">
+                          {message.analysisResults.map((result, i) => (
+                            <div key={i} className="text-sm">
+                              {result.data && result.data.length > 0 ? (
+                                <div>
+                                  <div className="font-medium text-muted-foreground mb-1">
+                                    Query {i + 1} Results ({result.data.length} rows):
+                                  </div>
+                                  <div className="bg-muted p-2 rounded max-h-40 overflow-y-auto">
+                                    <pre className="text-xs">{JSON.stringify(result.data, null, 2)}</pre>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-muted-foreground">No data returned for query {i + 1}</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {!message.isGeneralQuestion && index === messages.length - 1 && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -262,7 +329,7 @@ export function MastraChat() {
             )}
           </div>
 
-          {sqlResult && sqlResult.length > 0 && (
+          {sqlResult && sqlResult.length > 0 && !isExecuting && (
             <div className="border rounded-md overflow-hidden">
               <div className="bg-muted p-2 font-medium">Query Result</div>
               <div className="p-2 max-h-[200px] overflow-auto">

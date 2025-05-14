@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { openai } from "@ai-sdk/openai";
 import { Agent } from "@mastra/core/agent";
+import { createOpenAI } from "@ai-sdk/openai";
+import { tools } from "@/src/mastra/tools";
 
 // Allow up to 5 MB JSON bodies (App Router ignores Pages‑router bodyParser)
 export const maxRequestBodySize = 5 * 1024 * 1024; // bytes
@@ -34,24 +36,29 @@ function getAgent() {
       throw new Error("OPENAI_API_KEY is not configured");
     }
 
+    const openaiProvider = createOpenAI({
+      apiKey: process.env.OPENAI_API_KEY!,
+    });
+
     agentInstance = new Agent({
       name: "wt-sqlly-sql-converter",
       instructions: `
-        You are an SQL assistant that helps users convert natural-language questions into SQL.
+        You are an SQL assistant that helps users with two main functions:
+        1. Convert natural-language questions into SQL queries
+        2. Answer general questions about the data by analyzing it
+
         You will be provided with:
         1. The schema for a table named "csv_data".
         2. Sample rows from this table.
         3. A specific FileID.
 
-        Your task is to generate a SQL query that targets the "csv_data" table and MUST filter by the provided FileID.
-        
         IMPORTANT DATABASE STRUCTURE:
         - The csv_data table has columns: id, file_id, row_index, row_data, created_at
         - The actual row data is stored in a JSONB column called "row_data"
         - To access a field within row_data JSON, use the "->" operator for JSON traversal or "->>" for extracting text values
         
-        QUERY FORMAT:
-        - The MOST IMPORTANT REQUIREMENT is that your queries MUST cast row_data to JSON:
+        QUERY FORMAT REQUIREMENTS:
+        - Your queries MUST cast row_data to JSON:
           * CORRECT: SELECT row_data::json FROM csv_data WHERE ...
           * INCORRECT: SELECT row_data FROM csv_data WHERE ...
           * This cast is required because the RPC function expects JSON, not JSONB
@@ -68,19 +75,19 @@ function getAgent() {
         
         Always ensure the file_id filter is included in the WHERE clause: WHERE file_id = '[UUID]' AND ...
 
+        ANSWERING GENERAL QUESTIONS:
+        When asked a general question about the data (e.g., "What's the average age?", "How many records are from California?"):
+        1. First, design appropriate SQL queries to gather the necessary information
+        2. Explain that you'll run SQL queries to answer the question
+        3. Provide clear, executable SQL with proper JSON casting
+        
         Always do the following:
 
         1. Briefly restate in plain English what the user is asking for.
-        2. Show the valid, executable SQL for the "csv_data" table, incorporating the provided FileID, wrapped in a fenced code block. For example:
-          \`\`\`sql
-          SELECT row_data::json FROM csv_data WHERE file_id = '59037db4-f134-41d6-9cea-931d56278a38' AND (row_data->>'GPA')::numeric > 3.5;
-          \`\`\`
+        2. Show the valid, executable SQL for the "csv_data" table, incorporating the provided FileID, wrapped in a fenced code block.
         3. Based on the provided sample rows from "csv_data", include a short paragraph describing what the query will return.
-          
-        IMPORTANT: The file_id column in the database has type UUID with the format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx. 
-        If a file name with extension is provided like "59037db4-f134-41d6-9cea-931d56278a38-Expected Outcomes.csv", extract just the UUID part.
       `,
-      model: openai("gpt-4o-mini"),
+      model: openaiProvider("gpt-4o"),
       tools: {
         echo: echoTool,
       },
@@ -191,6 +198,7 @@ export async function POST(req: NextRequest) {
     let restatement = "";
     let sql = "";
     let resultDescription = "";
+    let isGeneralQuestion = false;
 
     // 1. Extract SQL
     const sqlRegex = /```sql\s*([\s\S]*?)```/i;
@@ -219,6 +227,25 @@ export async function POST(req: NextRequest) {
         resultDescription = afterSqlBlockContent; // Fallback to the whole content after SQL
       }
 
+      // 4. Determine if this is a general question about the data
+      isGeneralQuestion = 
+        restatement.toLowerCase().includes("to answer this question") ||
+        restatement.toLowerCase().includes("to find out") ||
+        restatement.toLowerCase().includes("to determine") ||
+        restatement.toLowerCase().includes("to analyze") ||
+        restatement.toLowerCase().includes("to calculate") ||
+        restatement.toLowerCase().includes("i'll run") ||
+        restatement.toLowerCase().includes("i need to run") ||
+        prompt.toLowerCase().includes("how many") ||
+        prompt.toLowerCase().includes("what is the average") ||
+        prompt.toLowerCase().includes("what's the average") ||
+        prompt.toLowerCase().includes("what is the highest") ||
+        prompt.toLowerCase().includes("what's the highest") ||
+        prompt.toLowerCase().includes("what is the lowest") ||
+        prompt.toLowerCase().includes("what's the lowest") ||
+        prompt.toLowerCase().includes("count the number") ||
+        prompt.toLowerCase().includes("summarize") ||
+        prompt.toLowerCase().includes("analyze");
     } else {
       // No SQL block found. The agent might be providing a general message or just the restatement.
       // Treat the whole reply as the restatement in this case, or if it seems like an error/clarification.
@@ -230,6 +257,7 @@ export async function POST(req: NextRequest) {
       restatement,
       sql,
       resultDescription,
+      isGeneralQuestion,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unexpected server error";
