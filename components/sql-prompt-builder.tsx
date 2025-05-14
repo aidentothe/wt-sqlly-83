@@ -4,7 +4,7 @@ import { CardFooter } from "@/components/ui/card"
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Play, Save, Trash2 } from "lucide-react"
+import { Play, Save, Trash2, RefreshCw } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/components/ui/use-toast"
 import { useCsvStore } from "@/hooks/use-csv-store"
-import { getSqlTemplates, executeSqlQuery, saveSqlQuery } from "@/lib/supabase"
+import { getSqlTemplates, executeSqlQuery, saveSqlQuery, getCsvFilesList, getCsvFileById, getCsvDataByFileId } from "@/lib/supabase"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface SqlTemplate {
@@ -30,9 +30,16 @@ interface QueryResult {
   error: string | null
 }
 
+interface CsvFileInfo {
+  id: string
+  name: string
+  size: number
+  createdAt: string
+}
+
 export function SqlPromptBuilder() {
   const { toast } = useToast()
-  const { csvFile } = useCsvStore()
+  const { csvFile, setCsvFile, setCsvData } = useCsvStore()
   const [sqlTemplates, setSqlTemplates] = useState<SqlTemplate[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<string>("")
   const [sqlQuery, setSqlQuery] = useState<string>("")
@@ -43,6 +50,82 @@ export function SqlPromptBuilder() {
     error: null,
   })
   const [activeTab, setActiveTab] = useState<string>("editor")
+  
+  // New state for CSV file selection
+  const [availableFiles, setAvailableFiles] = useState<CsvFileInfo[]>([])
+  const [selectedFileId, setSelectedFileId] = useState<string>("")
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false)
+
+  // Load available CSV files
+  const loadCsvFiles = async () => {
+    setIsLoadingFiles(true)
+    try {
+      const files = await getCsvFilesList()
+      setAvailableFiles(files)
+      if (files.length > 0 && !selectedFileId) {
+        setSelectedFileId(files[0].id)
+      }
+    } catch (error) {
+      console.error("Failed to load CSV files:", error)
+      toast({
+        variant: "destructive",
+        title: "Failed to load CSV files",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+      })
+    } finally {
+      setIsLoadingFiles(false)
+    }
+  }
+
+  // Load CSV files on component mount
+  useEffect(() => {
+    loadCsvFiles()
+  }, [])
+
+  // Handle CSV file selection
+  const handleFileSelect = async (fileId: string) => {
+    if (!fileId) return
+    
+    setIsLoadingFiles(true)
+    try {
+      // Get file metadata
+      const fileInfo = await getCsvFileById(fileId)
+      if (!fileInfo) throw new Error("File not found")
+      
+      // Get file data
+      const data = await getCsvDataByFileId(fileId, 100) // Load first 100 rows
+      
+      // Update the CSV store
+      setCsvFile({
+        id: fileInfo.id,
+        name: fileInfo.original_filename,
+        size: fileInfo.size_bytes,
+        columns: fileInfo.column_names || [],
+        rowCount: fileInfo.row_count || 0,
+      })
+      setCsvData(data)
+      
+      // Update selected file ID
+      setSelectedFileId(fileId)
+      
+      toast({
+        title: "File selected",
+        description: `Selected ${fileInfo.original_filename} for querying`,
+      })
+      
+      // Clear previous results
+      setQueryResult({ data: null, error: null })
+    } catch (error) {
+      console.error("Failed to select CSV file:", error)
+      toast({
+        variant: "destructive",
+        title: "Failed to select file",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+      })
+    } finally {
+      setIsLoadingFiles(false)
+    }
+  }
 
   // Load SQL templates
   useEffect(() => {
@@ -247,6 +330,47 @@ export function SqlPromptBuilder() {
           <CardDescription>Build and execute SQL queries against your CSV data</CardDescription>
         </CardHeader>
         <CardContent>
+          {/* File Selector */}
+          <div className="mb-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Select CSV File</label>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={loadCsvFiles}
+                disabled={isLoadingFiles}
+              >
+                <RefreshCw className={`h-4 w-4 mr-1 ${isLoadingFiles ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </div>
+            
+            <Select
+              value={selectedFileId}
+              onValueChange={handleFileSelect}
+              disabled={isLoadingFiles || availableFiles.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={
+                  availableFiles.length === 0 
+                    ? "No files available" 
+                    : isLoadingFiles 
+                      ? "Loading..." 
+                      : "Select a CSV file"
+                } />
+              </SelectTrigger>
+              <SelectContent>
+                {availableFiles.map((file) => (
+                  <SelectItem key={file.id} value={file.id}>
+                    {file.name} ({(file.size / 1024 / 1024) >= 1 
+                      ? `${(file.size / 1024 / 1024).toFixed(2)} MB` 
+                      : `${(file.size / 1024).toFixed(0)} KB`})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="editor">Editor</TabsTrigger>
