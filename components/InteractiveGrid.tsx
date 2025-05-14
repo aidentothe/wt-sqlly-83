@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame, extend, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { shaderMaterial } from '@react-three/drei';
@@ -78,38 +78,67 @@ extend({ GridMaterial });
 
 export function InteractiveGrid() {
   const materialRef = useRef<THREE.ShaderMaterial>(null!);
-  const mousePosition = useSimpleMousePosition(); // Get normalized mouse coords
-  const { size } = useThree(); // To set uResolution
+  const mousePosition = useSimpleMousePosition();
+  const { size, gl } = useThree(); // Added gl to potentially attach mouseleave to canvas
 
-  // Animation state for highlight intensity
-  const targetIntensity = useRef(0); // Target intensity when mouse is over a new cell
-  const currentIntensity = useRef(0); // Current animated intensity
+  const currentIntensity = useRef(0.0);
+  const lastActiveCell = useRef<[number, number] | null>(null);
+  const interactionTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useFrame((state, delta) => {
-    if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
-      materialRef.current.uniforms.uMouse.value.set(mousePosition.x, mousePosition.y);
-      materialRef.current.uniforms.uResolution.value.set(size.width, size.height);
+    if (!materialRef.current) return;
 
-      // Simple proximity check for highlight (placeholder for actual cell detection)
-      // This logic should be more refined to trigger based on cell changes
-      // For now, just a basic effect if mouse moves significantly
-      const dist = Math.sqrt(mousePosition.x*mousePosition.x + mousePosition.y*mousePosition.y);
-      // This is a placeholder to trigger fade in/out
-      // A better approach would be to detect when the highlighted cell *changes*
-      // For simplicity, let's just make it always try to reach 1 if mouse is not at 0,0
-      targetIntensity.current = (mousePosition.x !== 0 || mousePosition.y !== 0) ? 1.0 : 0.0;
+    materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+    materialRef.current.uniforms.uMouse.value.set(mousePosition.x, mousePosition.y);
+    materialRef.current.uniforms.uResolution.value.set(size.width, size.height);
 
-      // Lerp currentIntensity towards targetIntensity for fade effect
-      currentIntensity.current = THREE.MathUtils.lerp(currentIntensity.current, targetIntensity.current, delta * 5.0); // Adjust 5.0 for speed
-      materialRef.current.uniforms.uHighlightIntensity.value = currentIntensity.current;
+    // Determine current 2x2 cell block the mouse is over
+    const mouseCellX = Math.floor((mousePosition.x + 0.5) * 10.0);
+    const mouseCellY = Math.floor((mousePosition.y + 0.5) * 10.0);
+    const currentCellKey: [number, number] = [mouseCellX, mouseCellY];
+
+    let targetIntensity = 0.0;
+
+    if (lastActiveCell.current === null || 
+        lastActiveCell.current[0] !== currentCellKey[0] || 
+        lastActiveCell.current[1] !== currentCellKey[1]) {
+      // Mouse moved to a new cell block, or first interaction
+      targetIntensity = 1.0;
+      lastActiveCell.current = currentCellKey;
+      
+      // Clear any existing fade-out timeout
+      if (interactionTimeout.current) clearTimeout(interactionTimeout.current);
+      
+      // Set a timeout to start fading out if mouse stays inactive in this new cell
+      interactionTimeout.current = setTimeout(() => {
+        lastActiveCell.current = null; // Force fade out if mouse is idle
+      }, 750); // ms of inactivity before fade out begins
+    } else {
+      // Mouse is still in the same cell block, keep intensity or let it fade if timeout triggered
+      if (lastActiveCell.current !== null) {
+        targetIntensity = 1.0; // Keep it lit if timeout hasn't cleared lastActiveCell
+      }
     }
+    
+    currentIntensity.current = THREE.MathUtils.lerp(currentIntensity.current, targetIntensity, delta * 7.0); // Faster fade
+    materialRef.current.uniforms.uHighlightIntensity.value = currentIntensity.current;
   });
+  
+  // Optional: Add mouseleave event on canvas to force fade out
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const handleMouseLeave = () => {
+      lastActiveCell.current = null; // Trigger fade out
+      if (interactionTimeout.current) clearTimeout(interactionTimeout.current);
+    };
+    canvas.addEventListener('mouseleave', handleMouseLeave);
+    return () => canvas.removeEventListener('mouseleave', handleMouseLeave);
+  }, [gl]);
 
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} > {/* Rotate plane to be horizontal */}
-      <planeGeometry args={[10, 10, 50, 50]} /> {/* Adjust size and segments */}
-      {/* @ts-ignore TS doesn't know about GridMaterial from extend */}
+    <mesh rotation={[-Math.PI / 2, 0, 0]} >
+      <planeGeometry args={[10, 10, 50, 50]} />
+      {/* @ts-ignore */}
       <gridMaterial ref={materialRef} side={THREE.DoubleSide} />
     </mesh>
   );

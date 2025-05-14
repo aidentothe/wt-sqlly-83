@@ -1,16 +1,29 @@
 "use client";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { splashes } from "@/data/splashes";
 
 export default function SplashText() {
-  // pick once per session
+  const [visible, setVisible] = useState(true);
+
   const text = useMemo(
     () => splashes[Math.floor(Math.random() * splashes.length)],
     [],
   );
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setVisible(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <span
+      style={{
+        transition: 'opacity 1s ease-in-out',
+        opacity: visible ? 1 : 0,
+      }}
       className="
         select-none pointer-events-none
         fixed left-6 top-6 
