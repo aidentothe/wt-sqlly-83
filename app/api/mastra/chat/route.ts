@@ -50,9 +50,9 @@ function getAgent() {
 
         1. Briefly restate in plain English what the user is asking for.
         2. Show the valid, executable SQL for the "csv_data" table, incorporating the provided FileID, wrapped in a fenced code block. For example, if the provided FileID is 'abc-123-xyz':
-          \\`\\`\\`sql
+          \`\`\`sql
           SELECT * FROM csv_data WHERE file_id = 'abc-123-xyz' AND school = 'Harvard';
-          \\`\\`\\`
+          \`\`\`
         3. Based on the provided sample rows from "csv_data" (and considering the FileID context), include a short paragraph in natural language describing the actual results the query would return. For example:
           "This query would return all graduates who attended Harvard from the dataset associated with FileID 'abc-123-xyz'; in the sample data, those are Alice Johnson and Carlos Ramirez."
       `,
