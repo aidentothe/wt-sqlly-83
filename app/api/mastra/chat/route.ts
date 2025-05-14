@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { openai } from "@ai-sdk/openai";
 import { Agent } from "@mastra/core/agent";
 
-// Allow up to 5 MB JSON bodies (App Router ignores Pages‑router bodyParser)
+// Allow up to 5 MB JSON bodies (App Router ignores Pages‑router bodyParser)
 export const maxRequestBodySize = 5 * 1024 * 1024; // bytes
 
 // ────────────────────────────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ function getAgent() {
         You will be provided with:
         1. The schema for a table named "csv_data".
         2. Sample rows from this table.
-        3. A specific FileID that the user has selected to focus on.
+        3. A specific FileID.
 
         Your task is to generate a SQL query that targets the "csv_data" table and **MUST** filter by the provided FileID.
         The SQL query should look like: SELECT ... FROM csv_data WHERE file_id = 'THE_PROVIDED_FILE_ID' AND ...other_conditions...;
@@ -114,20 +114,19 @@ export async function POST(req: NextRequest) {
     if (
       typeof prompt !== "string" ||
       typeof schema !== "object" ||
-      !Array.isArray(sampleRows) ||
-      typeof fileId !== "string"
+      !Array.isArray(sampleRows)
     ) {
       return NextResponse.json(
         {
           error:
-            "Invalid payload. Expect { prompt: string, schema: object, sampleRows: any[], fileId: string }.",
+            "Invalid payload. Expect { prompt: string, schema: object, sampleRows: any[] }.",
         },
         { status: 400 },
       );
     }
 
     const agent = getAgent();
-    
+
     const systemMessageContent = 
       `Schema: ${JSON.stringify(schema)}\n` +
       `SampleRows: ${JSON.stringify(sampleRows)}\n` +
