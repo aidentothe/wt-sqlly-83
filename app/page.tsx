@@ -7,6 +7,7 @@ import { MastraChat } from "@/components/mastra-chat"
 import { MastraDocs } from "@/components/mastra-docs"
 import { Toaster } from "@/components/ui/toaster"
 import { CsvFileManager } from "@/components/csv-file-manager"
+import SplashText from "@/components/SplashText"
 
 export default function Home() {
   // Check if the required environment variables are available
@@ -14,6 +15,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
+      <SplashText />
       <Header />
       <MainLayout>
         <div className="container mx-auto p-6 space-y-8">
