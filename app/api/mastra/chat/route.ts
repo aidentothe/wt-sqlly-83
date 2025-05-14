@@ -48,7 +48,7 @@ function getAgent() {
         3. Based on the provided sample rows, include a short paragraph in natural language describing the actual results the query would return. For example:
           "This query would return all the graduates who attended Harvard; in the sample data, those are Alice Johnson and Carlos Ramirez."
       `,
-      model: openai("gpt-4o"),
+      model: openai("gpt-4o-mini"),
       tools: {
         echo: echoTool,
       },
