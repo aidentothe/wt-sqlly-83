@@ -131,10 +131,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Mastra agent returned non‑string output" }, { status: 500 });
     }
 
-    const sqlMatch = result.text.match(/```sql\s*([\s\S]*?)```/i);
-    const sql = sqlMatch ? sqlMatch[1].trim() : "";
+    const fullReply = result.text;
+    let restatement = "";
+    let sql = "";
+    let resultDescription = "";
 
-    return NextResponse.json({ reply: result.text, sql });
+    // 1. Extract SQL
+    const sqlRegex = /```sql\s*([\s\S]*?)```/i;
+    const sqlMatchResult = fullReply.match(sqlRegex);
+
+    if (sqlMatchResult && typeof sqlMatchResult.index === 'number' && sqlMatchResult[1]) {
+      sql = sqlMatchResult[1].trim();
+
+      // 2. Extract Restatement (Part 1: text before SQL block)
+      const beforeSqlBlockContent = fullReply.substring(0, sqlMatchResult.index).trim();
+      // Attempt to remove potential numbering like "1. " or "2. " that might be part of the intro
+      const restatementContentMatch = beforeSqlBlockContent.match(/^(?:1\.\s*)?([\s\S]*?)(?:\n*2\.\s*[\s\S]*)?$/i);
+      if (restatementContentMatch && restatementContentMatch[1]) {
+        restatement = restatementContentMatch[1].trim();
+      } else {
+        restatement = beforeSqlBlockContent; // Fallback to the whole content before SQL
+      }
+
+      // 3. Extract Result Description (Part 3: text after SQL block)
+      const afterSqlBlockContent = fullReply.substring(sqlMatchResult.index + sqlMatchResult[0].length).trim();
+      // Attempt to remove potential numbering like "3. "
+      const descriptionContentMatch = afterSqlBlockContent.match(/^(?:3\.\s*)?([\s\S]*)$/i);
+      if (descriptionContentMatch && descriptionContentMatch[1]) {
+        resultDescription = descriptionContentMatch[1].trim();
+      } else {
+        resultDescription = afterSqlBlockContent; // Fallback to the whole content after SQL
+      }
+
+    } else {
+      // No SQL block found. The agent might be providing a general message or just the restatement.
+      // Treat the whole reply as the restatement in this case, or if it seems like an error/clarification.
+      restatement = fullReply.trim();
+    }
+
+    return NextResponse.json({
+      reply: fullReply,
+      restatement,
+      sql,
+      resultDescription,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unexpected server error";
     console.error(err);
