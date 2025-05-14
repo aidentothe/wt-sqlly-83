@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { useCsvStore } from "@/hooks/use-csv-store"
-import { uploadCsv } from "@/lib/supabase"
+import { uploadCsv, getFileIdByOriginalFilename } from "@/lib/supabase"
 import { parseCsv } from "@/lib/csv-utils"
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -25,6 +25,34 @@ export function CsvUploader() {
     async (acceptedFiles: File[]) => {
       const file = acceptedFiles[0]
       if (!file) return
+
+      // Check if filename already exists
+      try {
+        const existingFileId = await getFileIdByOriginalFilename(file.name)
+        if (existingFileId) {
+          setUploadStatus("error")
+          const errorMessage = `File with name "${file.name}" already exists. Please rename your file and try again.`
+          setErrorMessage(errorMessage)
+          toast({
+            variant: "destructive",
+            title: "Filename already exists",
+            description: errorMessage,
+          })
+          return
+        }
+      } catch (checkError) {
+        // Handle errors during the existence check itself, e.g., network issue with Supabase
+        console.error("Error checking file existence:", checkError)
+        setUploadStatus("error")
+        const errorMessage = "Could not verify filename. Please try again."
+        setErrorMessage(errorMessage)
+        toast({
+          variant: "destructive",
+          title: "Filename check failed",
+          description: errorMessage,
+        })
+        return
+      }
 
       // Check file size
       if (file.size > MAX_FILE_SIZE) {
