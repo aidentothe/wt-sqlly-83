@@ -90,7 +90,7 @@ export function SqlPromptBuilder() {
     setQueryResult({ data: null, error: null })
 
     try {
-      const result = await executeSqlQuery(sqlQuery, csvFile.id)
+      const result = await executeSqlQuery(sqlQuery)
       setQueryResult({ data: result, error: null })
 
       // Add to history if not already present
