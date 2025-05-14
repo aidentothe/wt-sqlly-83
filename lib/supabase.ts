@@ -196,3 +196,45 @@ export async function getFileIdByOriginalFilename(originalFilename: string): Pro
     return null; 
   }
 }
+
+// Rename CSV file's original_filename
+export async function renameCsvFile(fileId: string, newOriginalFilename: string) {
+  try {
+    // Check if the new filename already exists for a DIFFERENT file
+    const existingFileWithNewName = await supabase
+      .from("csv_files")
+      .select("id")
+      .eq("original_filename", newOriginalFilename)
+      .single()
+
+    if (existingFileWithNewName.data && existingFileWithNewName.data.id !== fileId) {
+      throw new Error(`File with name "${newOriginalFilename}" already exists.`)
+    }
+
+    // Proceed with the update
+    const { data, error } = await supabase
+      .from("csv_files")
+      .update({ original_filename: newOriginalFilename })
+      .eq("id", fileId)
+      .select("id, original_filename") // Select the updated record to confirm
+      .single()
+
+    if (error) {
+      console.error("Error updating filename in Supabase:", error)
+      throw new Error(error.message || "Failed to update filename in Supabase.")
+    }
+
+    if (!data) {
+      throw new Error("Failed to update filename, no record returned after update.")
+    }
+
+    return { success: true, updatedFile: data }
+  } catch (error) {
+    console.error("Error renaming CSV file:", error)
+    // Ensure the error is re-thrown to be handled by the caller
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error("An unexpected error occurred while renaming the file.")
+  }
+}
