@@ -141,7 +141,7 @@ export function MastraChat() {
     setError(null)
 
     try {
-      const result = await executeSqlQuery(latestSql, csvFile.id)
+      const result = await executeSqlQuery(latestSql)
       setSqlResult(result)
 
       toast({

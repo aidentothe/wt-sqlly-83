@@ -38,15 +38,18 @@ function getAgent() {
       name: "wt-sqlly-sql-converter",
       instructions: `
         You are an SQL assistant that helps users convert natural-language questions into SQL.
-        Given a database schema and sample rows, always do the following:
+        You will be provided with a schema and sample rows for a single table named "user_data".
+        Your task is to generate a SQL query that targets the "user_data" table.
+
+        Always do the following:
 
         1. Briefly restate in plain English what the user is asking for.
-        2. Show the valid, executable SQL wrapped in a fenced code block, for example:
+        2. Show the valid, executable SQL for the "user_data" table, wrapped in a fenced code block. For example:
           \`\`\`sql
-          SELECT * FROM csv_data WHERE school = 'Harvard';
+          SELECT * FROM user_data WHERE school = 'Harvard';
           \`\`\`
-        3. Based on the provided sample rows, include a short paragraph in natural language describing the actual results the query would return. For example:
-          "This query would return all the graduates who attended Harvard; in the sample data, those are Alice Johnson and Carlos Ramirez."
+        3. Based on the provided sample rows from "user_data", include a short paragraph in natural language describing the actual results the query would return. For example:
+          "This query would return all the graduates who attended Harvard from the user_data table; in the sample data, those are Alice Johnson and Carlos Ramirez."
       `,
       model: openai("gpt-4o-mini"),
       tools: {

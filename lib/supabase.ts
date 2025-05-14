@@ -62,28 +62,37 @@ export async function getSqlTemplates() {
 }
 
 // Execute SQL query without row limit
-export async function executeSqlQuery(query: string, fileId: string) {
+export async function executeSqlQuery(query: string) {
   try {
-    // For security, we'll only allow certain operations on the csv_data table
-    // In a real app, you'd want more sophisticated validation
-    if (!query.toLowerCase().includes("csv_data")) {
-      throw new Error("Query must reference the csv_data table")
+    // Validate the query string to ensure it's a SELECT statement
+    // The AI should generate queries for "user_data" table as per previous instructions.
+    if (!query.trim().toUpperCase().startsWith("SELECT")) {
+      throw new Error("Only SELECT queries are allowed.");
     }
 
     // Execute the query using Supabase's RPC function
-    // Note: In a real app, you'd want to use a more secure approach
-    // This is simplified for demonstration purposes
-    const { data, error } = await supabase.from("csv_data").select("row_data").eq("file_id", fileId)
-    // Removed the .limit(100) to fetch all rows
+    const { data, error } = await supabase.rpc('execute_dynamic_select', { query: query });
 
-    if (error) throw error
+    if (error) {
+      console.error("Error from RPC:", error);
+      // Provide more specific error information if available
+      const errorMessage = error.message || "Unknown RPC error";
+      const errorDetails = error.details ? `Details: ${error.details}` : "";
+      const errorCode = error.code ? `Code: ${error.code}` : "";
+      const errorHint = error.hint ? `Hint: ${error.hint}` : "";
+      throw new Error(`Error executing SQL via RPC: ${errorMessage}. ${errorDetails} ${errorCode} ${errorHint}`);
+    }
 
-    // Transform the data to match what the query would return
-    // In a real app, you'd execute the actual SQL query
-    return data.map((item) => item.row_data)
+    // The 'data' variable now holds the actual result from the executed query.
+    // No more manual mapping is needed if the RPC function returns the correct format.
+    return data;
   } catch (error) {
-    console.error("Error executing SQL query:", error)
-    throw error
+    console.error("Error executing SQL query:", error);
+    // Ensure the caught error is re-thrown to be handled by the caller
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("An unexpected error occurred while executing the SQL query.");
   }
 }
 
