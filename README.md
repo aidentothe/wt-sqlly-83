@@ -1,30 +1,101 @@
-# Next.js + React App
+# SQLly - CSV to SQL Converter
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+SQLly is a web application that allows users to upload CSV files, ask natural language questions about the data, and receive SQL queries along with a natural language interpretation of the results. It features an interactive grid background that responds to mouse movements.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/aidentothe-projects/v0-next-js-react-app)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/jTQNLSFMIkJ)
+## ✨ Features
 
-## Overview
+*   **CSV Upload:** Users can upload their CSV files.
+*   **CSV Viewer:** Display uploaded CSV data in a table.
+*   **Natural Language to SQL:** Converts user questions (prompts) into executable SQL queries using AI.
+*   **AI-Powered Explanations:** Provides a natural language restatement of the user's query and a description of the expected SQL results.
+*   **Interactive Background:** A dynamic 2x2 grid background that lights up and fades based on cursor movement, built with react-three-fiber.
+*   **File Management:** View and delete uploaded CSV files.
+*   **Responsive Design:** UI built with Tailwind CSS.
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+## 🛠️ Tech Stack
 
-## Deployment
+*   **Framework:** [Next.js](https://nextjs.org/) 14+ (App Router)
+*   **Language:** [TypeScript](https://www.typescriptlang.org/)
+*   **Styling:** [Tailwind CSS](https://tailwindcss.com/)
+*   **3D Graphics:** [React Three Fiber (R3F)](https://docs.pmnd.rs/react-three-fiber), [Drei](https://github.com/pmndrs/drei)
+*   **AI Integration:** [Mastra.ai SDK](https://mastra.ai/) for agent interaction, [OpenAI API](https://openai.com/developers/) (gpt-4o-mini)
+*   **State Management/UI Components:** React, Shadcn UI (for some UI elements like Toaster)
+*   **Package Manager:** [pnpm](https://pnpm.io/)
 
-Your project is live at:
+## 🚀 Getting Started
 
-**[https://vercel.com/aidentothe-projects/v0-next-js-react-app](https://vercel.com/aidentothe-projects/v0-next-js-react-app)**
+### Prerequisites
 
-## Build your app
+*   Node.js (version 18.x or later recommended)
+*   pnpm (version 9.x or later recommended)
 
-Continue building your app on:
+### Environment Variables
 
-**[https://v0.dev/chat/projects/jTQNLSFMIkJ](https://v0.dev/chat/projects/jTQNLSFMIkJ)**
+Create a `.env.local` file in the root of the project and add the following environment variables:
 
-## How It Works
+```env
+OPENAI_API_KEY="your_openai_api_key_here"
+# This is used by the MastraChat component if you are using a hosted Mastra agent.
+# For this project's current setup, the agent is defined locally in app/api/mastra/chat/route.ts,
+# so this might not be strictly necessary unless other parts of Mastra components expect it.
+NEXT_PUBLIC_MASTRA_AGENT_URL="your_mastra_agent_url_if_applicable"
+```
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+Replace `"your_openai_api_key_here"` with your actual OpenAI API key.
+
+### Installation
+
+1.  Clone the repository:
+    ```bash
+    git clone <repository_url>
+    cd wt-sqlly-83 # Or your project directory name
+    ```
+
+2.  Install dependencies using pnpm:
+    ```bash
+    pnpm install
+    ```
+
+### Running the Development Server
+
+To start the development server:
+
+```bash
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
+
+## 🏗️ Building for Production
+
+To create a production build:
+
+```bash
+pnpm build
+```
+
+This will create an optimized build in the `.next` directory.
+
+## 📁 Project Structure Overview
+
+*   `app/`: Contains the Next.js App Router pages and API routes.
+    *   `app/page.tsx`: The main page of the application.
+    *   `app/api/mastra/chat/route.ts`: API endpoint for handling chat interactions with the Mastra AI agent.
+    *   `app/api/csv/`: API routes for CSV file upload, listing, and deletion.
+*   `components/`: Contains reusable React components.
+    *   `components/GridBackground.tsx`: The interactive 3D grid background.
+    *   `components/CsvUploader.tsx`: Component for uploading CSV files.
+    *   `components/CsvViewer.tsx`: Component for displaying CSV data.
+    *   `components/SqlPromptBuilder.tsx`: Component for user input (natural language query).
+    *   `components/MastraChat.tsx`: Component to display AI responses.
+    *   `components/ui/`: UI primitives, likely from Shadcn UI.
+*   `public/`: Static assets.
+*   `lib/`: Utility functions and library configurations.
+
+## ☁️ Deployment
+
+This project is configured for deployment on [Vercel](https://vercel.com/). Push your code to a Git repository (e.g., GitHub, GitLab) and connect it to Vercel for automatic deployments.
+
+---
+
+Generated by AI for the SQLly project.
