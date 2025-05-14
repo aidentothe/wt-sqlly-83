@@ -4,7 +4,6 @@ import React, { Suspense, useRef } from "react";
 import { Canvas, useFrame, type ThreeElements } from "@react-three/fiber";
 import { Environment, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
-import SplashText from "./SplashText";
 
 // GLSL Shaders for the background
 const vertexShader = `
@@ -150,7 +149,6 @@ export default function Background3D() {
           </Suspense>
         </Canvas>
       </div>
-      <SplashText />
     </>
   );
 } 
