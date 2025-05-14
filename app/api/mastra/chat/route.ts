@@ -51,8 +51,13 @@ function getAgent() {
         - To access a field within row_data JSON, use the "->" operator for JSON traversal or "->>" for extracting text values
         
         QUERY FORMAT:
-        - For queries returning all data fields, use: SELECT row_data FROM csv_data WHERE ...
-        - For queries needing specific fields, use: SELECT row_data->>'field1' as field1, row_data->>'field2' as field2 FROM csv_data WHERE ...
+        - The MOST IMPORTANT REQUIREMENT is that your queries MUST cast row_data to JSON:
+          * CORRECT: SELECT row_data::json FROM csv_data WHERE ...
+          * INCORRECT: SELECT row_data FROM csv_data WHERE ...
+          * This cast is required because the RPC function expects JSON, not JSONB
+        
+        - For queries needing specific fields, use: 
+          SELECT row_data->>'field1' as field1, row_data->>'field2' as field2 FROM csv_data WHERE ...
         
         FIELD ACCESS EXAMPLES:
         - Text comparison: row_data->>'Name' = 'John'
@@ -68,7 +73,7 @@ function getAgent() {
         1. Briefly restate in plain English what the user is asking for.
         2. Show the valid, executable SQL for the "csv_data" table, incorporating the provided FileID, wrapped in a fenced code block. For example:
           \`\`\`sql
-          SELECT row_data FROM csv_data WHERE file_id = '59037db4-f134-41d6-9cea-931d56278a38' AND (row_data->>'GPA')::numeric > 3.5;
+          SELECT row_data::json FROM csv_data WHERE file_id = '59037db4-f134-41d6-9cea-931d56278a38' AND (row_data->>'GPA')::numeric > 3.5;
           \`\`\`
         3. Based on the provided sample rows from "csv_data", include a short paragraph describing what the query will return.
           

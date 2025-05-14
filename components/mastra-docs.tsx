@@ -85,22 +85,32 @@ export function MastraDocs() {
                   <li>Each record has a <code>file_id</code> (UUID) identifying the uploaded file</li>
                   <li>The actual data is stored in a JSONB column called <code>row_data</code></li>
                   <li>
+                    <span className="font-medium">IMPORTANT:</span> When querying full rows, you must cast <code>row_data</code> to JSON:
+                    <pre className="bg-muted p-2 rounded text-xs mt-1 overflow-x-auto">
+                      SELECT row_data::json FROM csv_data WHERE file_id = &#39;[UUID]&#39;
+                    </pre>
+                  </li>
+                  <li>
                     To access fields in the JSON data, use the <code>{'->'}</code> and <code>{'->>'}</code> operators:
                     <pre className="bg-muted p-2 rounded text-xs mt-1 overflow-x-auto">
-                      SELECT row_data FROM csv_data WHERE file_id = &#39;[UUID]&#39; AND row_data{'->>'}&#39;Name&#39; = &#39;John&#39;
+                      SELECT row_data{'->>'}&#39;Name&#39; as name FROM csv_data WHERE file_id = &#39;[UUID]&#39; AND row_data{'->>'}&#39;Name&#39; = &#39;John&#39;
                     </pre>
                   </li>
                   <li>
                     For numeric comparisons, cast the text values:
                     <pre className="bg-muted p-2 rounded text-xs mt-1 overflow-x-auto">
-                      SELECT row_data FROM csv_data WHERE (row_data{'->>'}&#39;Age&#39;)::numeric {'>'} 30
+                      SELECT row_data::json FROM csv_data WHERE (row_data{'->>'}&#39;Age&#39;)::numeric {'>'} 30
                     </pre>
                   </li>
                   <li>
                     For IP address comparisons, use the inet type:
                     <pre className="bg-muted p-2 rounded text-xs mt-1 overflow-x-auto">
-                      SELECT row_data FROM csv_data WHERE (row_data{'->>'}&#39;IP&#39;)::inet {'>'} &#39;10.0.0.1&#39;::inet
+                      SELECT row_data::json FROM csv_data WHERE (row_data{'->>'}&#39;IP&#39;)::inet {'>'} &#39;10.0.0.1&#39;::inet
                     </pre>
+                  </li>
+                  <li>
+                    <span className="font-medium">Type Handling:</span> The database uses JSONB internally, but the Supabase RPC function
+                    expects JSON results. The SQL Prompt Builder will automatically add the <code>::json</code> cast when needed.
                   </li>
                 </ul>
               </AccordionContent>

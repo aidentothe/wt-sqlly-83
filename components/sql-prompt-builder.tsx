@@ -93,15 +93,27 @@ export function SqlPromptBuilder() {
     setQueryResult({ data: null, error: null })
 
     try {
-      // Ensure the query uses "SELECT row_data" instead of "SELECT *"
+      // Process the query to ensure correct JSON handling
       let processedQuery = sqlQuery;
-      if (processedQuery.toUpperCase().trim().startsWith("SELECT *")) {
-        processedQuery = processedQuery.replace(/SELECT\s+\*/i, "SELECT row_data");
-        // Update the displayed query with the corrected version
+      const upperQuery = processedQuery.toUpperCase().trim();
+      
+      // Case 1: Handle "SELECT *" queries - convert to row_data::json
+      if (upperQuery.startsWith("SELECT *")) {
+        processedQuery = processedQuery.replace(/SELECT\s+\*/i, "SELECT row_data::json");
         setSqlQuery(processedQuery);
         toast({
           title: "Query modified",
-          description: "Changed 'SELECT *' to 'SELECT row_data' to meet database requirements",
+          description: "Changed 'SELECT *' to 'SELECT row_data::json' to ensure proper JSON typing",
+        });
+      } 
+      // Case 2: Handle "SELECT row_data" without a cast - add ::json cast
+      else if (upperQuery.includes("SELECT ROW_DATA") && !upperQuery.includes("ROW_DATA::JSON") && 
+               !upperQuery.match(/ROW_DATA->>'\w+'/)) {
+        processedQuery = processedQuery.replace(/row_data(?!\s*::)/gi, "row_data::json");
+        setSqlQuery(processedQuery);
+        toast({
+          title: "Query modified",
+          description: "Added '::json' cast to row_data to ensure proper JSON typing",
         });
       }
 
@@ -118,7 +130,6 @@ export function SqlPromptBuilder() {
           );
           
           if (originalQuery !== processedQuery) {
-            // Update the displayed query with the corrected version for IP comparison
             setSqlQuery(processedQuery);
             toast({
               title: "Query modified",
@@ -128,6 +139,7 @@ export function SqlPromptBuilder() {
         }
       }
 
+      // Execute the processed query
       const result = await executeSqlQuery(processedQuery)
       setQueryResult({ data: result, error: null })
 
@@ -142,18 +154,61 @@ export function SqlPromptBuilder() {
       })
     } catch (error) {
       console.error("Query execution error:", error)
+      
+      // Check for specific JSON type error and fix automatically
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      if (errorMsg.includes("type jsonb does not match expected type json") || 
+          errorMsg.includes("structure of query does not match function result type")) {
+        
+        // Try executing again with explicit ::json cast
+        try {
+          // Modify the query to add ::json cast
+          let fixedQuery = sqlQuery;
+          if (fixedQuery.match(/SELECT\s+row_data\b/i) && !fixedQuery.match(/row_data::json/i)) {
+            fixedQuery = fixedQuery.replace(/row_data\b(?!\s*::json)/i, "row_data::json");
+            setSqlQuery(fixedQuery);
+            
+            toast({
+              title: "Fixing JSON type issue",
+              description: "Attempting to execute query with proper JSON casting",
+            });
+            
+            // Execute the fixed query
+            const result = await executeSqlQuery(fixedQuery);
+            setQueryResult({ data: result, error: null });
+            
+            // Add to history
+            if (!queryHistory.includes(fixedQuery)) {
+              setQueryHistory((prev) => [fixedQuery, ...prev].slice(0, 10));
+            }
+            
+            toast({
+              title: "Query executed successfully after fixing",
+              description: `Returned ${result.length} rows`,
+            });
+            
+            setIsExecuting(false);
+            return;
+          }
+        } catch (secondError) {
+          // If the second attempt also fails, show the original error
+          console.error("Failed to fix query:", secondError);
+        }
+      }
+      
+      // Show the original error if fixing didn't work or wasn't applicable
       setQueryResult({
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
-      })
+        error: errorMsg,
+      });
 
       toast({
         variant: "destructive",
         title: "Query execution failed",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
-      })
+        description: errorMsg
+      });
     } finally {
-      setIsExecuting(false)
+      setIsExecuting(false);
     }
   }
 
