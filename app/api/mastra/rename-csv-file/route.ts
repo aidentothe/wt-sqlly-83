@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { renameCsvFile, getFileIdByOriginalFilename } from '@/lib/supabase'
+import { renameCsvFile } from '@/lib/supabase-server-actions'
 
 export async function POST(request: Request) {
   try {
