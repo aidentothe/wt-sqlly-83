@@ -67,18 +67,20 @@ export async function getSqlTemplates() {
 // Execute SQL query without row limit
 export async function executeSqlQuery(query: string) {
   try {
-    // Validate the query string to ensure it's a SELECT statement
-    // The AI should generate queries for "user_data" table as per previous instructions.
+    // Basic validation only - ensure it's a SELECT statement for security
     if (!query.trim().toUpperCase().startsWith("SELECT")) {
-      throw new Error("Only SELECT queries are allowed.");
+      throw new Error("Only SELECT queries are allowed for security reasons.");
     }
+
+    // Log the query being executed for debugging
+    console.log("Executing SQL query:", query);
 
     // Execute the query using Supabase's RPC function
     const { data, error } = await supabase.rpc('execute_dynamic_select', { query: query });
 
     if (error) {
       console.error("Error from RPC:", error);
-      // Provide more specific error information if available
+      // Provide error information
       const errorMessage = error.message || "Unknown RPC error";
       const errorDetails = error.details ? `Details: ${error.details}` : "";
       const errorCode = error.code ? `Code: ${error.code}` : "";
@@ -86,12 +88,10 @@ export async function executeSqlQuery(query: string) {
       throw new Error(`Error executing SQL via RPC: ${errorMessage}. ${errorDetails} ${errorCode} ${errorHint}`);
     }
 
-    // The 'data' variable now holds the actual result from the executed query.
-    // No more manual mapping is needed if the RPC function returns the correct format.
+    // Return data directly from Supabase without post-processing
     return data;
   } catch (error) {
     console.error("Error executing SQL query:", error);
-    // Ensure the caught error is re-thrown to be handled by the caller
     if (error instanceof Error) {
       throw error;
     }
