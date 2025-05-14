@@ -76,6 +76,36 @@ export function MastraDocs() {
               </AccordionContent>
             </AccordionItem>
 
+            <AccordionItem value="database">
+              <AccordionTrigger>Database Structure</AccordionTrigger>
+              <AccordionContent>
+                <p className="text-sm text-muted-foreground">Important details about the database structure:</p>
+                <ul className="list-disc pl-5 text-sm text-muted-foreground mt-2 space-y-1">
+                  <li>CSV data is stored in a table named <code>csv_data</code></li>
+                  <li>Each record has a <code>file_id</code> (UUID) identifying the uploaded file</li>
+                  <li>The actual data is stored in a JSONB column called <code>row_data</code></li>
+                  <li>
+                    To access fields in the JSON data, use the <code>{'->'}</code> and <code>{'->>'}</code> operators:
+                    <pre className="bg-muted p-2 rounded text-xs mt-1 overflow-x-auto">
+                      SELECT row_data FROM csv_data WHERE file_id = &#39;[UUID]&#39; AND row_data{'->>'}&#39;Name&#39; = &#39;John&#39;
+                    </pre>
+                  </li>
+                  <li>
+                    For numeric comparisons, cast the text values:
+                    <pre className="bg-muted p-2 rounded text-xs mt-1 overflow-x-auto">
+                      SELECT row_data FROM csv_data WHERE (row_data{'->>'}&#39;Age&#39;)::numeric {'>'} 30
+                    </pre>
+                  </li>
+                  <li>
+                    For IP address comparisons, use the inet type:
+                    <pre className="bg-muted p-2 rounded text-xs mt-1 overflow-x-auto">
+                      SELECT row_data FROM csv_data WHERE (row_data{'->>'}&#39;IP&#39;)::inet {'>'} &#39;10.0.0.1&#39;::inet
+                    </pre>
+                  </li>
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+
             <AccordionItem value="usage">
               <AccordionTrigger>Usage Examples</AccordionTrigger>
               <AccordionContent>

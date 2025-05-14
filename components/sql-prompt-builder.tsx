@@ -93,12 +93,47 @@ export function SqlPromptBuilder() {
     setQueryResult({ data: null, error: null })
 
     try {
-      const result = await executeSqlQuery(sqlQuery)
+      // Ensure the query uses "SELECT row_data" instead of "SELECT *"
+      let processedQuery = sqlQuery;
+      if (processedQuery.toUpperCase().trim().startsWith("SELECT *")) {
+        processedQuery = processedQuery.replace(/SELECT\s+\*/i, "SELECT row_data");
+        // Update the displayed query with the corrected version
+        setSqlQuery(processedQuery);
+        toast({
+          title: "Query modified",
+          description: "Changed 'SELECT *' to 'SELECT row_data' to meet database requirements",
+        });
+      }
+
+      // Check for IP comparisons without inet casting
+      if (processedQuery.includes("row_data->>'IP'") && 
+          (processedQuery.includes(" > '") || processedQuery.includes(" < '") || 
+           processedQuery.includes(" >= '") || processedQuery.includes(" <= '"))) {
+        
+        if (!processedQuery.includes("::inet")) {
+          const originalQuery = processedQuery;
+          processedQuery = processedQuery.replace(
+            /(row_data->>'IP')\s*([><]=?)\s*'([^']+)'/g, 
+            "$1::inet $2 '$3'::inet"
+          );
+          
+          if (originalQuery !== processedQuery) {
+            // Update the displayed query with the corrected version for IP comparison
+            setSqlQuery(processedQuery);
+            toast({
+              title: "Query modified",
+              description: "Added inet casting for proper IP address comparison",
+            });
+          }
+        }
+      }
+
+      const result = await executeSqlQuery(processedQuery)
       setQueryResult({ data: result, error: null })
 
       // Add to history if not already present
-      if (!queryHistory.includes(sqlQuery)) {
-        setQueryHistory((prev) => [sqlQuery, ...prev].slice(0, 10))
+      if (!queryHistory.includes(processedQuery)) {
+        setQueryHistory((prev) => [processedQuery, ...prev].slice(0, 10))
       }
 
       toast({
