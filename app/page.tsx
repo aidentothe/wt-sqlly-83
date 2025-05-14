@@ -24,21 +24,19 @@ export default function Home() {
           <CsvUploader />
           <MastraDocs />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 space-y-6">
               <CsvViewer />
+              <div className="mt-6">
+                <h2 className="text-xl font-bold mb-2">Manage Uploaded CSV Files</h2>
+                <p className="mb-4 text-muted-foreground">View and delete your uploaded CSV files below.</p>
+                <CsvFileManager />
+              </div>
             </div>
             <div className="lg:col-span-1 space-y-6">
               <SqlPromptBuilder />
               <MastraChat />
             </div>
           </div>
-
-          {/* CSV File Manager Section */}
-          <section className="w-full max-w-2xl mt-12">
-            <h2 className="text-xl font-bold mb-2">Manage Uploaded CSV Files</h2>
-            <p className="mb-4 text-muted-foreground">View and delete your uploaded CSV files below.</p>
-            <CsvFileManager />
-          </section>
         </div>
       </MainLayout>
       <Toaster />
