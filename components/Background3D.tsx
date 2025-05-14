@@ -93,18 +93,26 @@ function FloatingShape(props: ThreeElements['mesh'] & { geometryType?: 'sphere' 
   );
 }
 
+// Component to handle shader animation
+interface ShaderAnimatorProps {
+  materialRef: React.RefObject<THREE.ShaderMaterial>;
+}
+
+function ShaderAnimator({ materialRef }: ShaderAnimatorProps) {
+  useFrame((state) => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+    }
+  });
+  return null; // This component does not render anything itself
+}
+
 // Background3D Component
 export default function Background3D() {
   const shaderMaterialRef = useRef<THREE.ShaderMaterial>(null!);
   const uniforms = {
     uTime: { value: 0 },
   };
-
-  useFrame((state) => {
-    if (shaderMaterialRef.current) {
-      shaderMaterialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
-    }
-  });
 
   return (
     <div className="absolute inset-0 z-[-10]">
@@ -134,6 +142,9 @@ export default function Background3D() {
           <FloatingShape position={[-2, 0.5, -2] as unknown as THREE.Vector3} geometryType="sphere" color="mediumpurple" />
           <FloatingShape position={[2, -0.5, -1]as unknown as THREE.Vector3} geometryType="torus" color="lightcoral" />
           <FloatingShape position={[0, 1, -3] as unknown as THREE.Vector3} geometryType="roundedBox" />
+          
+          {/* Add the animator component here, inside Suspense and Canvas */}
+          <ShaderAnimator materialRef={shaderMaterialRef} />
         </Suspense>
       </Canvas>
     </div>
