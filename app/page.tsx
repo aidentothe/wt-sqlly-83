@@ -40,6 +40,9 @@ export default function Home() {
         </div>
       </MainLayout>
       <Toaster />
+      <footer className="border-t p-4 text-center text-sm text-muted-foreground">
+        Made with love powered by Mastra.ai
+      </footer>
     </div>
   )
 }
