@@ -1,4 +1,7 @@
-export async function parseCsv(file: File): Promise<{ columns: string[]; rows: any[] }> {
+// Define a type for CSV row data
+type CsvRowData = Record<string, string | number | boolean | null>
+
+export async function parseCsv(file: File): Promise<{ columns: string[]; rows: CsvRowData[] }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
 
@@ -16,13 +19,13 @@ export async function parseCsv(file: File): Promise<{ columns: string[]; rows: a
       }
 
       const columns = lines[0].split(",").map((column) => column.trim())
-      const rows: any[] = []
+      const rows: CsvRowData[] = []
 
       for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(",").map((value) => value.trim())
         if (values.length !== columns.length) continue // Skip rows with incorrect number of columns
 
-        const row: Record<string, any> = {}
+        const row: Record<string, string> = {}
         for (let j = 0; j < columns.length; j++) {
           row[columns[j]] = values[j]
         }
@@ -44,7 +47,7 @@ export async function parseCsv(file: File): Promise<{ columns: string[]; rows: a
  * Extract schema information from CSV columns and sample rows
  * This is a client-safe version that doesn't depend on Node.js modules
  */
-export function extractSchemaFromCsv(columns: string[], sampleRows: any[]) {
+export function extractSchemaFromCsv(columns: string[], sampleRows: CsvRowData[]) {
   if (!columns || !columns.length || !sampleRows) {
     console.warn("Invalid input to extractSchemaFromCsv")
     return {}

@@ -22,8 +22,11 @@ interface SqlTemplate {
   is_template: boolean
 }
 
+// Define a type for SQL query results
+type SqlResultRow = Record<string, string | number | boolean | null>
+
 interface QueryResult {
-  data: any[] | null
+  data: SqlResultRow[] | null
   error: string | null
 }
 

@@ -18,13 +18,16 @@ interface Message {
   sql: string
 }
 
+// Define a type for SQL query results
+type SqlResult = Record<string, unknown>[]
+
 export function MastraChat() {
   const { toast } = useToast()
   const { csvFile, csvData } = useCsvStore()
   const [messages, setMessages] = useState<Message[]>([])
   const [draft, setDraft] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [sqlResult, setSqlResult] = useState<any[] | null>(null)
+  const [sqlResult, setSqlResult] = useState<SqlResult | null>(null)
   const [isExecuting, setIsExecuting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -59,6 +62,7 @@ export function MastraChat() {
           prompt: draft,
           schema,
           sampleRows,
+          fileId: csvFile.id || csvFile.name, // Send the file ID or name as fallback
         }),
       })
 

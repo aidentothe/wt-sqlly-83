@@ -7,10 +7,13 @@ import { v4 as uuidv4 } from "uuid"
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
+// Define a type for CSV row data
+type CsvRowData = Record<string, string | number | boolean | null>
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Upload CSV to Supabase
-export async function uploadCsv(file: File, parsedData: { columns: string[]; rows: any[] }) {
+export async function uploadCsv(file: File, parsedData: { columns: string[]; rows: CsvRowData[] }) {
   try {
     // Generate a unique ID for the file
     const fileId = uuidv4()

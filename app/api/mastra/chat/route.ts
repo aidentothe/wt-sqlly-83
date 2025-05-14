@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { openai } from "@ai-sdk/openai";
 import { Agent } from "@mastra/core/agent";
 
-// Allow up to 5 MB JSON bodies (App Router ignores Pages‑router bodyParser)
+// Allow up to 5 MB JSON bodies (App Router ignores Pages‑router bodyParser)
 export const maxRequestBodySize = 5 * 1024 * 1024; // bytes
 
 // ────────────────────────────────────────────────────────────────────────────────
@@ -55,6 +55,9 @@ function getAgent() {
           \`\`\`
         3. Based on the provided sample rows from "csv_data" (and considering the FileID context), include a short paragraph in natural language describing the actual results the query would return. For example:
           "This query would return all graduates who attended Harvard from the dataset associated with FileID 'abc-123-xyz'; in the sample data, those are Alice Johnson and Carlos Ramirez."
+          
+        IMPORTANT: The file_id column in the database has type UUID. Make sure the file_id value in your SQL is always a valid UUID with the format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (where x is a hexadecimal digit). 
+        If a file name with extension is provided like "59037db4-f134-41d6-9cea-931d56278a38-Expected Outcomes.csv", extract just the UUID part.
       `,
       model: openai("gpt-4o-mini"),
       tools: {
@@ -68,6 +71,8 @@ function getAgent() {
 // ────────────────────────────────────────────────────────────────────────────────
 // Utility – rudimentary schema inference from CSV‑shaped data
 // ────────────────────────────────────────────────────────────────────────────────
+// This function is kept for reference but is now used client-side only
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function extractSchemaFromCsv(columns: string[], sampleRows: Record<string, unknown>[]) {
   if (!columns?.length || !sampleRows) return {};
 
@@ -97,6 +102,13 @@ function extractSchemaFromCsv(columns: string[], sampleRows: Record<string, unkn
   return schema;
 }
 
+// Utility - extract UUID from a string
+function extractUuid(str: string): string {
+  const uuidPattern = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
+  const match = str.match(uuidPattern);
+  return match ? match[1] : str;
+}
+
 // ────────────────────────────────────────────────────────────────────────────────
 // POST /api/mastra/chat – turn NL -> SQL via Mastra agent
 // ────────────────────────────────────────────────────────────────────────────────
@@ -114,23 +126,33 @@ export async function POST(req: NextRequest) {
     if (
       typeof prompt !== "string" ||
       typeof schema !== "object" ||
-      !Array.isArray(sampleRows)
+      !Array.isArray(sampleRows) ||
+      !fileId
     ) {
       return NextResponse.json(
         {
           error:
-            "Invalid payload. Expect { prompt: string, schema: object, sampleRows: any[] }.",
+            "Invalid payload. Expect { prompt: string, schema: object, sampleRows: any[], fileId: string }.",
         },
         { status: 400 },
       );
     }
 
     const agent = getAgent();
+    
+    // Extract the UUID part from fileId
+    const cleanFileId = extractUuid(fileId);
+
+    // Add file_id to each sample row for clarity in the AI model's context
+    const enrichedSampleRows = sampleRows.map(row => ({
+      ...row,
+      file_id: cleanFileId
+    }));
 
     const systemMessageContent = 
       `Schema: ${JSON.stringify(schema)}\n` +
-      `SampleRows: ${JSON.stringify(sampleRows)}\n` +
-      `FileID: ${fileId}`;
+      `SampleRows: ${JSON.stringify(enrichedSampleRows)}\n` +
+      `FileID: ${cleanFileId}`;
 
     const result = await agent.generate([
       { role: "system", content: systemMessageContent },
