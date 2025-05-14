@@ -4,6 +4,7 @@ import React, { Suspense, useRef } from "react";
 import { Canvas, useFrame, type ThreeElements } from "@react-three/fiber";
 import { Environment, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
+import SplashText from "./SplashText";
 
 // GLSL Shaders for the background
 const vertexShader = `
@@ -115,38 +116,41 @@ export default function Background3D() {
   };
 
   return (
-    <div className="absolute inset-0 z-[-10]">
-      <Canvas
-        gl={{ antialias: true }}
-        camera={{ position: [0, 0, 5], fov: 50 }}
-        frameloop="demand" // Throttle render updates, can be set to "always" or "demand"
-      >
-        <color attach="background" args={["#f0f4ff"]} />
-        <ambientLight intensity={0.5} />
-        <pointLight position={[10, 10, 10]} />
-        <Suspense fallback={null}>
-          <Environment preset="forest" background backgroundBlurriness={0.5} />
-          
-          {/* Shader Background Plane */}
-          <mesh position={[0, 0, -5]}> {/* Position it further back */}
-            <planeGeometry args={[20, 20, 1, 1]} />
-            <shaderMaterial
-              ref={shaderMaterialRef}
-              vertexShader={vertexShader}
-              fragmentShader={fragmentShader}
-              uniforms={uniforms}
-            />
-          </mesh>
+    <>
+      <div className="absolute inset-0 z-[-10]">
+        <Canvas
+          gl={{ antialias: true }}
+          camera={{ position: [0, 0, 5], fov: 50 }}
+          frameloop="demand" // Throttle render updates, can be set to "always" or "demand"
+        >
+          <color attach="background" args={["#f0f4ff"]} />
+          <ambientLight intensity={0.5} />
+          <pointLight position={[10, 10, 10]} />
+          <Suspense fallback={null}>
+            <Environment preset="forest" background backgroundBlurriness={0.5} />
+            
+            {/* Shader Background Plane */}
+            <mesh position={[0, 0, -5]}> {/* Position it further back */}
+              <planeGeometry args={[20, 20, 1, 1]} />
+              <shaderMaterial
+                ref={shaderMaterialRef}
+                vertexShader={vertexShader}
+                fragmentShader={fragmentShader}
+                uniforms={uniforms}
+              />
+            </mesh>
 
-          {/* Floating 3D Shapes */}
-          <FloatingShape position={[-2, 0.5, -2] as unknown as THREE.Vector3} geometryType="sphere" color="mediumpurple" />
-          <FloatingShape position={[2, -0.5, -1]as unknown as THREE.Vector3} geometryType="torus" color="lightcoral" />
-          <FloatingShape position={[0, 1, -3] as unknown as THREE.Vector3} geometryType="roundedBox" />
-          
-          {/* Add the animator component here, inside Suspense and Canvas */}
-          <ShaderAnimator materialRef={shaderMaterialRef} />
-        </Suspense>
-      </Canvas>
-    </div>
+            {/* Floating 3D Shapes */}
+            <FloatingShape position={[-2, 0.5, -2] as unknown as THREE.Vector3} geometryType="sphere" color="mediumpurple" />
+            <FloatingShape position={[2, -0.5, -1]as unknown as THREE.Vector3} geometryType="torus" color="lightcoral" />
+            <FloatingShape position={[0, 1, -3] as unknown as THREE.Vector3} geometryType="roundedBox" />
+            
+            {/* Add the animator component here, inside Suspense and Canvas */}
+            <ShaderAnimator materialRef={shaderMaterialRef} />
+          </Suspense>
+        </Canvas>
+      </div>
+      <SplashText />
+    </>
   );
 } 
