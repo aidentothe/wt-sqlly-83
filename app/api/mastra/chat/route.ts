@@ -44,17 +44,29 @@ function getAgent() {
         3. A specific FileID.
 
         Your task is to generate a SQL query that targets the "csv_data" table and **MUST** filter by the provided FileID.
-        The SQL query should look like: SELECT ... FROM csv_data WHERE file_id = 'THE_PROVIDED_FILE_ID' AND ...other_conditions...;
+        
+        IMPORTANT: The actual row data is stored in a JSONB column called "row_data". To access a field within that JSON data, you must use the "->" operator for traversing the JSON, and the "->>" operator for extracting values as text.
+        
+        For example, to filter rows where the "GPA" field in row_data is greater than 3:
+        SELECT * FROM csv_data WHERE file_id = 'THE_PROVIDED_FILE_ID' AND (row_data->>'GPA')::numeric > 3;
+        
+        Similarly, to search for names containing a pattern:
+        SELECT * FROM csv_data WHERE file_id = 'THE_PROVIDED_FILE_ID' AND row_data->>'Name' ILIKE '%Smith%';
+        
+        For string operations, you can use the value directly with row_data->>'field_name'.
+        For numeric operations, cast the string value: (row_data->>'field_name')::numeric.
+        For date operations, cast the string value: (row_data->>'date_field')::date.
+        For boolean operations, cast the string value: (row_data->>'bool_field')::boolean.
 
         Always do the following:
 
         1. Briefly restate in plain English what the user is asking for.
         2. Show the valid, executable SQL for the "csv_data" table, incorporating the provided FileID, wrapped in a fenced code block. For example, if the provided FileID is 'abc-123-xyz':
           \`\`\`sql
-          SELECT * FROM csv_data WHERE file_id = 'abc-123-xyz' AND school = 'Harvard';
+          SELECT * FROM csv_data WHERE file_id = 'abc-123-xyz' AND (row_data->>'GPA')::numeric > 3.5;
           \`\`\`
         3. Based on the provided sample rows from "csv_data" (and considering the FileID context), include a short paragraph in natural language describing the actual results the query would return. For example:
-          "This query would return all graduates who attended Harvard from the dataset associated with FileID 'abc-123-xyz'; in the sample data, those are Alice Johnson and Carlos Ramirez."
+          "This query would return all students with a GPA higher than 3.5 from the dataset associated with FileID 'abc-123-xyz'; in the sample data, those are Alice Johnson and Carlos Ramirez."
           
         IMPORTANT: The file_id column in the database has type UUID. Make sure the file_id value in your SQL is always a valid UUID with the format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (where x is a hexadecimal digit). 
         If a file name with extension is provided like "59037db4-f134-41d6-9cea-931d56278a38-Expected Outcomes.csv", extract just the UUID part.
